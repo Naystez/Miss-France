@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#140e23">
+<link rel="manifest" href="./manifest.webmanifest">
 <title>Miss France 2027 · Concours de pronostics</title>
 <style>
 :root{--paper:#fcf7ef;--wash:#f4eadf;--ink:#301827;--wine:#622544;--muted:#715764;--line:#e3d1c7;--gold:#eac58d;--display:Georgia,'Times New Roman',serif}
@@ -393,6 +394,45 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
 .candidate-activity {font-size:.85rem;color:var(--ink);line-height:1.35;margin:0 0 8px}
 .dialog-head .candidate-activity {margin:4px 0 0}
 .photo-dialog.is-zoomed .candidate-activity {display:none}
+@media(max-width:680px) {
+  :root {--mobile-nav-height:64px}
+  body {padding-bottom:calc(var(--mobile-nav-height) + env(safe-area-inset-bottom))}
+  body > header .header-inner {min-height:56px}
+  body > header nav {
+    position:fixed;inset:auto 0 0;z-index:10;width:100%;min-height:var(--mobile-nav-height);
+    display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);grid-template-columns:none;
+    align-items:stretch;gap:2px;
+    padding:6px max(5px,env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(5px,env(safe-area-inset-left));
+    background:#1a122b;border-top:1px solid #634775;
+  }
+  body > header nav a {
+    min-width:0;min-height:48px;padding:4px 2px;border-radius:10px;
+    font-size:clamp(.68rem,2.7vw,.88rem);line-height:1.15;text-align:center;
+    white-space:normal;overflow-wrap:anywhere;
+  }
+  body > header nav a:focus-visible {outline-offset:-3px}
+  .gallery-tools {align-items:stretch;flex-direction:column}
+  .gallery-tools label {width:100%}
+  .gallery-switch {width:100%;justify-content:space-between}
+  .filter-favorites,.favorite-button,.profile-link {min-height:44px}
+  .photo-step,.dialog-close {min-width:44px;min-height:44px}
+  .dialog-stage {grid-template-columns:44px minmax(0,1fr) 44px}
+  .dialog-thumbnails {
+    grid-template-columns:repeat(5,minmax(0,48px));gap:4px;
+  }
+  .dialog-thumbnails button {min-height:40px}
+  .photo-dialog {max-height:calc(100dvh - 16px);overscroll-behavior:contain}
+  .dialog-stage img {height:min(46dvh,450px)}
+  .photo-dialog.is-zoomed .dialog-stage {position:relative;grid-template-columns:minmax(0,1fr)}
+  .photo-dialog.is-zoomed .photo-zoom {grid-column:1;grid-row:1}
+  .photo-dialog.is-zoomed .photo-step {
+    position:absolute;z-index:1;top:50%;transform:translateY(-50%);
+    background:#211832e8;
+  }
+  .photo-dialog.is-zoomed #photo-precedente {left:4px}
+  .photo-dialog.is-zoomed #photo-suivante {right:4px}
+  .photo-dialog.is-zoomed .photo-zoom img {height:100%}
+}
 </style>
 </head>
 <body>
