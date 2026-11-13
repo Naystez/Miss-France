@@ -442,7 +442,8 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
   .photo-dialog.is-zoomed #photo-suivante {right:4px}
   .photo-dialog.is-zoomed .photo-zoom img {height:100%}
 }
-  #vote-ballot,#vote-results {margin-top:14px}
+  #vote-ballot,#vote-results-panel,#vote-results {margin-top:14px}
+  #vote-results-panel > summary {min-height:44px;align-content:center}
   #vote-invite {max-width:100%}
   .vote-heading {display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 16px}
   .vote-heading h2 {margin:0}
@@ -1042,18 +1043,20 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
           <div id="vote-list" class="vote-member-grid"></div>
         </div>
       </section>
+        <details id="vote-results-panel" class="prono-panel" hidden>
+          <summary>Résultats officiels · Organisation</summary>
+          <form id="vote-results">
+            <p>Publier les résultats ferme les votes dans tous les groupes.</p>
+            <div id="vote-result-top" class="prono-choices"></div>
+            <div class="prono-choices">
+              <label>Autres demi-finalistes <select id="vote-semi" multiple size="7"></select></label>
+              <label>Candidates ayant trébuché <select id="vote-trips" multiple size="7"></select></label>
+            </div>
+            <p>Sur ordinateur, maintiens Ctrl ou ⌘ pour sélectionner plusieurs candidates. Les cinq finalistes sont incluses automatiquement parmi les demi-finalistes.</p>
+            <div class="prono-actions"><button class="btn primary">Publier les résultats</button></div>
+          </form>
+        </details>
       </div>
-      <form id="vote-results" class="prono-panel" hidden>
-        <h3>Résultats officiels · Organisation</h3>
-        <p>Publier les résultats ferme les votes dans tous les groupes.</p>
-        <div id="vote-result-top" class="prono-choices"></div>
-        <div class="prono-choices">
-          <label>Autres demi-finalistes <select id="vote-semi" multiple size="7"></select></label>
-          <label>Candidates ayant trébuché <select id="vote-trips" multiple size="7"></select></label>
-        </div>
-        <p>Sur ordinateur, maintiens Ctrl ou ⌘ pour sélectionner plusieurs candidates. Les cinq finalistes sont incluses automatiquement parmi les demi-finalistes.</p>
-        <div class="prono-actions"><button class="btn primary">Publier les résultats</button></div>
-      </form>
     </div>
   </section>
   <section id="classement" hidden aria-labelledby="titre-classement">
@@ -1435,6 +1438,7 @@ groupTab.addEventListener('click', () => showVoteView('group'));
 const authForm = byId('vote-auth');
 const ballot = byId('vote-ballot');
 const resultsForm = byId('vote-results');
+const resultsPanel = byId('vote-results-panel');
 const resultsRef = doc(db, 'contest', 'results');
 const candidates = [...document.querySelectorAll('#galerie .candidate')];
 const candidateLabels = candidates.map(card =>
@@ -1662,7 +1666,8 @@ async function startSession(account) {
   authForm.hidden = Boolean(user);
   byId('vote-session').hidden = !user;
   byId('vote-groups').hidden = !user?.emailVerified;
-  resultsForm.hidden = true;
+  resultsPanel.hidden = true;
+  resultsPanel.open = false;
   byId('vote-email').textContent = user?.email || '';
   byId('vote-check').hidden = byId('vote-resend').hidden = !user || user.emailVerified;
   if (!user) { message('Connecte-toi pour rejoindre ou créer un groupe.'); return; }
@@ -1675,7 +1680,7 @@ async function startSession(account) {
   }, error => { if (revision === sessionRevision) message(describe(error)); });
   await loadGroups();
   const admin = await getDocFromServer(doc(db, 'admins', account.uid));
-  if (revision === sessionRevision) resultsForm.hidden = admin.data()?.active !== true;
+  if (revision === sessionRevision) resultsPanel.hidden = admin.data()?.active !== true;
 }
 
 const inviteInput = byId('vote-join').elements.invite;
