@@ -441,6 +441,12 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
   #vote-session,#vote-group-panel,#vote-ballot,#vote-reveal,#vote-results {margin-top:14px}
   #vote-invite {max-width:100%}
   #vote-email {overflow-wrap:anywhere}
+  .vote-submenu {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:14px 0}
+  .vote-submenu button {min-width:0;min-height:48px;white-space:normal;line-height:1.2}
+  .vote-submenu [aria-pressed="true"] {color:#ffe1a9;border-color:#bb83ac;background:#563151}
+  .vote-create-details,#vote-owner {margin-top:12px}
+  .vote-create-details form,#vote-owner label {margin-top:8px}
+  #vote-no-group {margin:10px 0 0;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -919,31 +925,40 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
       </div>
     </div>
     <div id="vote-groups" hidden>
-      <div class="prono-panel">
-        <h3>Mes groupes</h3>
-        <label>Groupe actif <select id="vote-group"></select></label>
-        <div class="prono-choices">
+      <div class="vote-submenu" role="group" aria-label="Vues des pronostics">
+        <button type="button" class="filter-favorites" id="vote-tab-join" aria-controls="vote-join-view" aria-pressed="true">Rejoindre un groupe</button>
+        <button type="button" class="filter-favorites" id="vote-tab-group" aria-controls="vote-group-view" aria-pressed="false">Pronostic du groupe</button>
+      </div>
+      <div id="vote-join-view" class="prono-panel">
+        <form id="vote-join">
+          <label>Code d’invitation <input name="invite" required autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+          <div class="prono-actions"><button class="btn primary">Rejoindre le groupe</button></div>
+        </form>
+        <details class="vote-create-details">
+          <summary>Créer un groupe</summary>
           <form id="vote-create">
             <label>Nom du nouveau groupe <input name="groupName" required maxlength="70"></label>
-            <div class="prono-actions"><button class="filter-favorites">Créer un groupe</button></div>
+            <div class="prono-actions"><button class="filter-favorites">Créer le groupe</button></div>
           </form>
-          <form id="vote-join">
-            <label>Lien ou code d’invitation <input name="invite" required></label>
-            <div class="prono-actions"><button class="filter-favorites">Rejoindre le groupe</button></div>
-          </form>
-        </div>
+        </details>
       </div>
+      <div id="vote-group-view" hidden>
+        <div class="prono-panel" id="vote-group-picker">
+          <label>Mon groupe <select id="vote-group"></select></label>
+          <p id="vote-no-group" hidden>Rejoins ou crée un groupe pour faire ton pronostic.</p>
+        </div>
       <div id="vote-group-panel" class="prono-panel" hidden>
         <h3 id="vote-group-name"></h3>
         <p id="vote-group-state"></p>
-        <div id="vote-owner" hidden>
-          <label>Lien d’invitation <input id="vote-invite" readonly></label>
+        <details id="vote-owner" hidden>
+          <summary>Invitations et gestion du groupe</summary>
+          <label>Code d’invitation <input id="vote-invite" readonly></label>
           <div class="prono-actions">
-            <button type="button" class="filter-favorites" id="vote-copy">Copier le lien</button>
-            <button type="button" class="filter-favorites" id="vote-rotate">Renouveler le lien</button>
+            <button type="button" class="filter-favorites" id="vote-copy">Copier le code</button>
+            <button type="button" class="filter-favorites" id="vote-rotate">Renouveler le code</button>
             <button type="button" class="filter-favorites" id="vote-close">Fermer les votes</button>
           </div>
-        </div>
+        </details>
       </div>
       <form id="vote-ballot" class="prono-panel" hidden>
         <h3>Mon pronostic</h3>
@@ -954,6 +969,7 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
       <div id="vote-reveal" class="prono-panel" hidden>
         <h3>Pronostics du groupe <span id="vote-count"></span></h3>
         <div id="vote-list"></div>
+      </div>
       </div>
       <form id="vote-results" class="prono-panel" hidden>
         <h3>Résultats officiels · Organisation</h3>
@@ -1314,6 +1330,6 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
   });
   window.addEventListener('hashchange', () => { if (dialog.open) dialog.close(); });
 </script>
-<script type="module" src="./votes.js"></script>
+<script type="module" src="./votes.js?v=groupes"></script>
 </body>
 </html>

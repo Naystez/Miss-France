@@ -16,6 +16,18 @@ const db = getFirestore(app);
 const byId = id => document.getElementById(id);
 const voteStatus = byId('vote-status');
 const groupSelect = byId('vote-group');
+const joinTab = byId('vote-tab-join');
+const groupTab = byId('vote-tab-group');
+
+function showVoteView(view) {
+  const showingGroup = view === 'group';
+  joinTab.setAttribute('aria-pressed', String(!showingGroup));
+  groupTab.setAttribute('aria-pressed', String(showingGroup));
+  byId('vote-join-view').hidden = showingGroup;
+  byId('vote-group-view').hidden = !showingGroup;
+}
+joinTab.addEventListener('click', () => showVoteView('join'));
+groupTab.addEventListener('click', () => showVoteView('group'));
 const authForm = byId('vote-auth');
 const ballot = byId('vote-ballot');
 const resultsForm = byId('vote-results');
@@ -144,6 +156,7 @@ function resetGroup() {
   votes = [];
   ballot.reset();
   byId('vote-invite').value = '';
+  byId('vote-owner').open = false;
   renderVotes();
   syncView();
 }
@@ -163,11 +176,7 @@ function selectGroup(id) {
     if (groupData?.owner === uid) {
       getDocFromServer(privateInviteRef(id)).then(invite => {
         if (current() && invite.exists()) {
-          const link = new URL(location.href);
-          link.search = '';
-          link.searchParams.set('invitation', invite.data().token);
-          link.hash = 'pronostics';
-          byId('vote-invite').value = link.href;
+          byId('vote-invite').value = invite.data().token;
         }
       }).catch(fail);
     }
@@ -199,7 +208,11 @@ async function loadGroups(preferred) {
   groupSelect.replaceChildren(new Option('Choisir un groupe', ''),
     ...options.map(group => new Option(group.data().name, group.id)));
   groupSelect.value = options.some(group => group.id === preferred) ? preferred : options[0]?.id || '';
+  const hasGroups = options.length > 0;
+  groupSelect.disabled = !hasGroups;
+  byId('vote-no-group').hidden = hasGroups;
   selectGroup(groupSelect.value);
+  showVoteView((hasGroups && !inviteInput.value) ? 'group' : 'join');
 }
 
 async function startSession(account) {
@@ -228,7 +241,6 @@ async function startSession(account) {
   if (revision === sessionRevision) resultsForm.hidden = admin.data()?.active !== true;
 }
 
-onAuthStateChanged(auth, account => startSession(account).catch(error => message(describe(error))));
 const inviteInput = byId('vote-join').elements.invite;
 const invitation = new URLSearchParams(location.search).get('invitation');
 if (invitation && /^[0-9a-f]{48}$/.test(invitation)) inviteInput.value = invitation;
@@ -281,12 +293,13 @@ byId('vote-create').addEventListener('submit', act(async event => {
   await batch.commit();
   form.reset();
   await loadGroups(group.id);
-  message('Groupe créé. Son lien d’invitation est prêt à partager.');
+  showVoteView('group');
+  byId('vote-owner').open = true;
+  message('Groupe créé. Copie le code pour inviter des participants.');
 }));
 byId('vote-join').addEventListener('submit', act(async () => {
-  let token = inviteInput.value.trim();
-  if (token.includes('://')) token = new URL(token).searchParams.get('invitation') || '';
-  if (!/^[0-9a-f]{48}$/.test(token)) throw new Error('Lien ou code d’invitation invalide.');
+  const token = inviteInput.value.replace(/[\s-]/g, '').toLowerCase();
+  if (!/^[0-9a-f]{48}$/.test(token)) throw new Error('Code d’invitation invalide.');
   const invite = await getDocFromServer(inviteRef(token)).catch(error => {
     if (error.code === 'permission-denied') throw new Error('Cette invitation est invalide ou a été renouvelée.');
     throw error;
@@ -303,6 +316,7 @@ byId('vote-join').addEventListener('submit', act(async () => {
   url.searchParams.delete('invitation');
   history.replaceState(null, '', url);
   await loadGroups(group);
+  showVoteView('group');
   message('Groupe rejoint.');
 }));
 byId('vote-copy').addEventListener('click', act(async () => {
@@ -310,27 +324,23 @@ byId('vote-copy').addEventListener('click', act(async () => {
   if (!field.value) return;
   try {
     await navigator.clipboard.writeText(field.value);
-    message('Lien copié.');
+    message('Code copié.');
   } catch {
     field.focus();
     field.select();
-    message('Le lien est sélectionné. Copie-le pour le partager.');
+    message('Le code est sélectionné. Copie-le pour le partager.');
   }
 }));
 byId('vote-rotate').addEventListener('click', act(async () => {
-  if (!confirm('Remplacer le lien actuel ? Les membres déjà inscrits gardent leur accès.')) return;
+  if (!confirm('Remplacer le code actuel ? Les membres déjà inscrits gardent leur accès.')) return;
   const group = activeGroup;
   const batch = writeBatch(db);
   const token = makeInvite(batch, group);
   await batch.commit();
   if (activeGroup === group) {
-    const link = new URL(location.href);
-    link.search = '';
-    link.searchParams.set('invitation', token);
-    link.hash = 'pronostics';
-    byId('vote-invite').value = link.href;
+    byId('vote-invite').value = token;
   }
-  message('Lien renouvelé.');
+  message('Code renouvelé.');
 }));
 byId('vote-close').addEventListener('click', act(async () => {
   if (!confirm('Fermer définitivement les votes de ce groupe ?')) return;
@@ -363,3 +373,5 @@ resultsForm.addEventListener('submit', act(async () => {
   await setDoc(resultsRef, {top, semi, trips});
   message('Résultats publiés pour tous les groupes.');
 }));
+
+onAuthStateChanged(auth, account => startSession(account).catch(error => message(describe(error))));
