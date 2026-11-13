@@ -63,6 +63,7 @@ let user;
 let activeGroup;
 let groupData;
 let ownVote;
+let draft = null;
 let results;
 let votes = [];
 let busy = false;
@@ -117,7 +118,13 @@ function syncView() {
   byId('vote-owner').hidden = !ready || groupData.owner !== user.uid;
   const closed = Boolean(groupData?.closed || results);
   byId('vote-close').disabled = closed;
-  ballot.hidden = !ready || ownVote !== false || closed;
+  const canVote = ready && ownVote === false && !closed;
+  if (!canVote) draft = null;
+  ballot.hidden = !canVote || Boolean(draft);
+  byId('vote-review').hidden = !canVote || !draft;
+  byId('vote-own').hidden = !ready || !ownVote;
+  byId('vote-own-group').textContent = groupData?.name || '';
+  byId('vote-review-group').textContent = groupData?.name || '';
   byId('vote-reveal').hidden = !ready || !ownVote;
   byId('vote-group-name').textContent = groupData?.name || '';
   byId('vote-group-state').textContent = closed ? 'Votes fermés.' : 'Votes ouverts.';
@@ -127,21 +134,46 @@ function syncView() {
     : []);
 }
 
+function renderPicks(vote) {
+  const list = document.createElement('ul');
+  list.className = 'vote-picks';
+  [...vote.top, vote.bonus].forEach((candidate, index) => {
+    const pick = document.createElement('li');
+    const info = document.createElement('div');
+    const rank = document.createElement('small');
+    const region = document.createElement('strong');
+    const card = candidates[candidate - 1];
+    const image = card.querySelector('.photo-open img').cloneNode();
+    pick.className = 'vote-pick';
+    image.alt = '';
+    image.loading = 'lazy';
+    rank.textContent = rankLabels[index] || 'Bonus';
+    region.textContent = candidateLabels[candidate - 1];
+    info.append(rank, region);
+    pick.append(image, info);
+    list.append(pick);
+  });
+  return list;
+}
+
 function renderVotes() {
-  byId('vote-count').textContent = '(' + votes.length + ')';
-  byId('vote-list').replaceChildren(...votes.map(vote => {
+  const others = votes.filter(vote => vote.uid !== user?.uid);
+  const list = byId('vote-list');
+  const open = new Set([...list.querySelectorAll('details[open]')].map(row => row.dataset.uid));
+  byId('vote-count').textContent = '(' + others.length + ')';
+  byId('vote-other-empty').hidden = others.length > 0;
+  list.replaceChildren(...others.map(vote => {
     const row = document.createElement('details');
-    const title = document.createElement('summary');
-    const list = document.createElement('ol');
-    const bonus = document.createElement('p');
-    title.textContent = vote.name;
-    vote.top.forEach(candidate => {
-      const line = document.createElement('li');
-      line.textContent = candidateLabels[candidate - 1];
-      list.append(line);
-    });
-    bonus.textContent = 'Bonus · ' + candidateLabels[vote.bonus - 1];
-    row.append(title, list, bonus);
+    const summary = document.createElement('summary');
+    const name = document.createElement('strong');
+    const winner = document.createElement('small');
+    row.className = 'vote-member';
+    row.dataset.uid = vote.uid;
+    row.open = open.has(vote.uid);
+    name.textContent = vote.name;
+    winner.textContent = 'Gagnante · ' + candidateLabels[vote.top[0] - 1];
+    summary.append(name, winner);
+    row.append(summary, renderPicks(vote));
     return row;
   }));
 }
@@ -152,7 +184,9 @@ function resetGroup() {
   stopGroup = [];
   stopVotes?.();
   stopVotes = null;
-  activeGroup = groupData = ownVote = null;
+  activeGroup = groupData = ownVote = draft = null;
+  byId('vote-own-picks').replaceChildren();
+  byId('vote-review-status').textContent = '';
   votes = [];
   ballot.reset();
   byId('vote-invite').value = '';
@@ -184,10 +218,11 @@ function selectGroup(id) {
   stopGroup.push(onSnapshot(voteRef(id, uid), {includeMetadataChanges: true}, snapshot => {
     if (!current() || snapshot.metadata.hasPendingWrites || snapshot.metadata.fromCache) return;
     ownVote = snapshot.exists() ? snapshot.data() : false;
+    if (ownVote) byId('vote-own-picks').replaceChildren(renderPicks(ownVote));
     if (ownVote && !stopVotes) {
       stopVotes = onSnapshot(collection(db, 'groups', id, 'votes'), {includeMetadataChanges: true}, data => {
         if (!current() || data.metadata.fromCache) return;
-        votes = data.docs.map(item => item.data()).sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+        votes = data.docs.map(item => ({...item.data(), uid: item.id})).sort((a, b) => a.name.localeCompare(b.name, 'fr'));
         renderVotes();
         syncView();
       }, fail);
@@ -354,15 +389,39 @@ function readTop(fields) {
   return top;
 }
 ballot.addEventListener('submit', act(async () => {
-  const group = activeGroup;
   const name = ballot.elements.alias.value.trim();
   if (!name) throw new Error('Renseigne ton nom affiché.');
   const top = readTop(voteFields.slice(0, 5));
   const bonus = Number(voteFields[5].value);
   if (!bonus) throw new Error('Choisis une candidate pour le bonus.');
-  const summary = top.map((id, index) => rankLabels[index] + ' · ' + candidateLabels[id - 1]).join('\n');
-  if (!confirm(summary + '\nBonus · ' + candidateLabels[bonus - 1] + '\n\nValider définitivement ce pronostic ?')) return;
-  await setDoc(voteRef(group, user.uid), {name, top, bonus, createdAt: serverTimestamp()});
+  draft = {name, top, bonus};
+  byId('vote-review-picks').replaceChildren(renderPicks(draft));
+  byId('vote-review-status').textContent = '';
+  syncView();
+  byId('vote-review-title').focus();
+}));
+byId('vote-review-back').addEventListener('click', () => {
+  if (busy) return;
+  draft = null;
+  syncView();
+  ballot.querySelector('button[type="submit"],button').focus();
+});
+byId('vote-review-confirm').addEventListener('click', act(async () => {
+  if (!draft || ownVote !== false || groupData?.closed || results) return;
+  const submitted = draft;
+  const revision = groupRevision;
+  byId('vote-review-status').textContent = 'Enregistrement…';
+  try {
+    await setDoc(voteRef(activeGroup, user.uid), {...submitted, createdAt: serverTimestamp()});
+  } catch (error) {
+    if (revision === groupRevision) byId('vote-review-status').textContent = describe(error);
+    throw error;
+  }
+  if (revision !== groupRevision) return;
+  ownVote = submitted;
+  byId('vote-own-picks').replaceChildren(renderPicks(ownVote));
+  syncView();
+  byId('vote-own-title').focus();
   message('Ton pronostic est enregistré et verrouillé.');
 }));
 resultsForm.addEventListener('submit', act(async () => {
