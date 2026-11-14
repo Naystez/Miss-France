@@ -443,6 +443,29 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
   .photo-dialog.is-zoomed .photo-zoom img {height:100%}
 }
   #vote-results-panel,#vote-results {margin-top:14px}
+  .vote-stats-heading {display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px 16px}
+  .vote-stats-heading h3 {margin:0;overflow-wrap:anywhere}
+  #vote-stats-group {margin:4px 0 0;color:var(--muted);overflow-wrap:anywhere}
+  #vote-stats-status,#vote-stats-data {margin:14px 0 0}
+  #vote-stats-status {color:var(--muted)}
+  .vote-stats-totals {display:flex;flex-wrap:wrap;gap:8px;margin:0 0 18px;padding:0;list-style:none}
+  .vote-stats-totals li {padding:8px 12px;border:1px solid var(--line);border-radius:9px;background:#211832}
+  .vote-stats-totals strong {color:var(--gold)}
+  #vote-stats-leaders {margin:0 0 18px;padding:0;list-style:none}
+  #vote-stats-leaders li {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 8px;margin:0 0 10px;overflow-wrap:anywhere}
+  .vote-stats-bar {height:7px;border-radius:10px;background:#443658;grid-column:1/-1;overflow:hidden}
+  .vote-stats-bar span {display:block;height:100%;background:linear-gradient(90deg,#bb75a8,#ffd289);border-radius:inherit}
+  #vote-stats-data details {padding-bottom:0}
+  .vote-stats-table {overflow-x:auto;margin-top:10px}
+  .vote-stats-table table {border-collapse:collapse;width:100%;min-width:570px;font-size:.85rem}
+  .vote-stats-table th,.vote-stats-table td {padding:8px;border-bottom:1px solid var(--line);text-align:center}
+  .vote-stats-table th:first-child {text-align:left}
+  .vote-stats-table thead th[scope="col"] {color:var(--gold)}
+  .vote-stats-table tbody td {font-variant-numeric:tabular-nums}
+  @media(max-width:420px) {
+    .vote-submenu {gap:4px}
+    .vote-submenu button {padding-inline:4px;font-size:.75rem}
+  }
   #vote-results-panel > summary {min-height:44px;align-content:center}
   #vote-invite {max-width:100%}
   .vote-heading {display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 16px}
@@ -455,7 +478,7 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
     .vote-heading h2 {font-size:clamp(1.85rem,8vw,2.4rem)}
     #vote-session {flex:1 1 9rem;justify-content:flex-end}
   }
-  .vote-submenu {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:14px 0}
+  .vote-submenu {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:14px 0}
   .vote-submenu button {min-width:0;min-height:48px;white-space:normal;line-height:1.2}
   .vote-submenu [aria-pressed="true"] {color:#ffe1a9;border-color:#bb83ac;background:#563151}
   .vote-create-details {margin-top:12px}
@@ -1004,6 +1027,7 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
       <div class="vote-submenu" role="group" aria-label="Vues des pronostics">
         <button type="button" class="filter-favorites" id="vote-tab-join" aria-controls="vote-join-view" aria-pressed="true">Rejoindre un groupe</button>
         <button type="button" class="filter-favorites" id="vote-tab-group" aria-controls="vote-group-view" aria-pressed="false">Pronostic du groupe</button>
+        <button type="button" class="filter-favorites" id="vote-tab-stats" aria-controls="vote-stats-view" aria-pressed="false">Statistiques</button>
       </div>
       <div id="vote-join-view" class="prono-panel">
         <form id="vote-join">
@@ -1083,6 +1107,30 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
           </form>
         </details>
       </div>
+      <section id="vote-stats-view" class="prono-panel" hidden aria-labelledby="vote-stats-title">
+        <div class="vote-stats-heading">
+          <div>
+            <h3 id="vote-stats-title">Statistiques du groupe</h3>
+            <p id="vote-stats-group" hidden></p>
+          </div>
+          <button type="button" class="filter-favorites" id="vote-stats-back">Voir le groupe</button>
+        </div>
+        <p id="vote-stats-status" role="status"></p>
+        <div id="vote-stats-data" hidden>
+          <ul id="vote-stats-totals" class="vote-stats-totals"></ul>
+          <h4>Favorites pour la couronne</h4>
+          <ul id="vote-stats-leaders"></ul>
+          <details id="vote-stats-details">
+            <summary>Détail des votes par rang</summary>
+            <div class="vote-stats-table" role="region" aria-label="Décompte des votes par candidate" tabindex="0">
+              <table aria-label="Votes par rang et choix pour le bonus">
+                <thead><tr><th scope="col">Candidate</th><th scope="col">Gagnante</th><th scope="col">1ʳᵉ dauphine</th><th scope="col">2ᵉ dauphine</th><th scope="col">3ᵉ dauphine</th><th scope="col">4ᵉ dauphine</th><th scope="col">Bonus</th></tr></thead>
+                <tbody id="vote-stats-rows"></tbody>
+              </table>
+            </div>
+          </details>
+        </div>
+      </section>
     </div>
   </section>
   <section id="classement" hidden aria-labelledby="titre-classement">
@@ -1449,18 +1497,28 @@ const db = getFirestore(app);
 const byId = id => document.getElementById(id);
 const voteStatus = byId('vote-status');
 const groupSelect = byId('vote-group');
-const joinTab = byId('vote-tab-join');
-const groupTab = byId('vote-tab-group');
+const voteTabs = Object.entries({
+  join: [byId('vote-tab-join'), byId('vote-join-view')],
+  group: [byId('vote-tab-group'), byId('vote-group-view')],
+  stats: [byId('vote-tab-stats'), byId('vote-stats-view')]
+});
 
 function showVoteView(view) {
-  const showingGroup = view === 'group';
-  joinTab.setAttribute('aria-pressed', String(!showingGroup));
-  groupTab.setAttribute('aria-pressed', String(showingGroup));
-  byId('vote-join-view').hidden = showingGroup;
-  byId('vote-group-view').hidden = !showingGroup;
+  for (const [key, [button, panel]] of voteTabs) {
+    const selected = key === view;
+    button.setAttribute('aria-pressed', String(selected));
+    panel.hidden = !selected;
+  }
+  if (view === 'stats') renderVoteStats();
 }
-joinTab.addEventListener('click', () => showVoteView('join'));
-groupTab.addEventListener('click', () => showVoteView('group'));
+for (const [view, [button]] of voteTabs) {
+  button.addEventListener('click', () => showVoteView(view));
+}
+byId('vote-stats-back').addEventListener('click', () => {
+  const tab = byId(groupSelect.value ? 'vote-tab-group' : 'vote-tab-join');
+  tab.click();
+  tab.focus();
+});
 const authForm = byId('vote-auth');
 const ballot = byId('vote-ballot');
 const resultsForm = byId('vote-results');
@@ -1561,9 +1619,93 @@ function syncView() {
   byId('vote-group-state').hidden = !ready || !closed || ownVote === false;
   byId('vote-closed-notice').hidden = !ready || !closed || ownVote !== false;
   byId('vote-ranking-label').textContent = ready ? groupData.name : 'Choisis un groupe dans Pronostics.';
+  if (!byId('vote-stats-view').hidden) renderVoteStats();
   renderContestRankings(ready && ownVote && results
     ? votes.map(vote => ({nom: vote.name, points: pointsForVote(vote, results)}))
     : []);
+}
+
+function summarizeVotes(ballots) {
+  const rows = candidateLabels.map(label => ({
+    label, ranks: rankLabels.map(() => 0), bonus: 0
+  }));
+  for (const {top, bonus} of ballots) {
+    top.forEach((candidate, rank) => { rows[candidate - 1].ranks[rank]++; });
+    rows[bonus - 1].bonus++;
+  }
+  const totalTop = row => row.ranks.reduce((total, count) => total + count, 0);
+  return rows.filter(row => row.bonus || totalTop(row)).sort((a, b) =>
+    b.ranks[0] - a.ranks[0] || totalTop(b) - totalTop(a) || a.label.localeCompare(b.label, 'fr'));
+}
+
+function renderVoteStats() {
+  const name = byId('vote-stats-group');
+  const status = byId('vote-stats-status');
+  const data = byId('vote-stats-data');
+  const allowed = Boolean(user?.emailVerified && groupData && ownVote);
+  name.textContent = groupData?.name || '';
+  name.hidden = !groupData;
+  byId('vote-stats-back').textContent = groupSelect.value ? 'Voir le groupe' : 'Rejoindre un groupe';
+  data.hidden = !allowed || !votes.length;
+  status.hidden = !data.hidden;
+  if (!groupSelect.value) {
+    status.textContent = 'Rejoins ou crée un groupe pour consulter ses statistiques.';
+  } else if (!groupData || ownVote == null || (ownVote && !votes.length)) {
+    status.textContent = 'Chargement des statistiques…';
+  } else if (!ownVote) {
+    status.textContent = 'Les statistiques sont accessibles après validation de ton pronostic.';
+  } else {
+    status.textContent = '';
+  }
+  if (data.hidden) {
+    byId('vote-stats-totals').replaceChildren();
+    byId('vote-stats-leaders').replaceChildren();
+    byId('vote-stats-rows').replaceChildren();
+    return;
+  }
+
+  const rows = summarizeVotes(votes);
+  const favorites = rows.filter(row => row.ranks[0]);
+  const counts = [
+    [votes.length, votes.length === 1 ? 'pronostic validé' : 'pronostics validés'],
+    [favorites.length, favorites.length === 1 ? 'candidate choisie gagnante' : 'candidates choisies gagnantes']
+  ];
+  byId('vote-stats-totals').replaceChildren(...counts.map(([count, label]) => {
+    const item = document.createElement('li');
+    const number = document.createElement('strong');
+    number.textContent = count;
+    item.append(number, ' ' + label);
+    return item;
+  }));
+  byId('vote-stats-leaders').replaceChildren(...favorites.map(({label, ranks}) => {
+    const item = document.createElement('li');
+    const candidate = document.createElement('strong');
+    const count = document.createElement('span');
+    const bar = document.createElement('span');
+    const fill = document.createElement('span');
+    const share = ranks[0] / votes.length;
+    candidate.textContent = label;
+    count.textContent = ranks[0] + ' voix · ' +
+      share.toLocaleString('fr-FR', {style:'percent', maximumFractionDigits:1});
+    bar.className = 'vote-stats-bar';
+    bar.setAttribute('aria-hidden', 'true');
+    fill.style.width = (share * 100) + '%';
+    bar.append(fill);
+    item.append(candidate, count, bar);
+    return item;
+  }));
+  byId('vote-stats-rows').replaceChildren(...rows.map(({label, ranks, bonus}) => {
+    const row = document.createElement('tr');
+    const title = document.createElement('th');
+    title.scope = 'row';
+    title.textContent = label;
+    row.append(title);
+    for (const count of [...ranks, bonus]) {
+      const cell = row.insertCell();
+      cell.textContent = count;
+    }
+    return row;
+  }));
 }
 
 function renderPicks(vote) {
@@ -1626,6 +1768,7 @@ function resetGroup() {
   activeGroup = groupData = ownVote = draft = null;
   byId('vote-own-picks').replaceChildren();
   byId('vote-own-details').open = false;
+  byId('vote-stats-details').open = false;
   byId('vote-review-status').textContent = '';
   votes = [];
   ballot.reset();
