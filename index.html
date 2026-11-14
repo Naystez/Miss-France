@@ -442,7 +442,7 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
   .photo-dialog.is-zoomed #photo-suivante {right:4px}
   .photo-dialog.is-zoomed .photo-zoom img {height:100%}
 }
-  #vote-ballot,#vote-results-panel,#vote-results {margin-top:14px}
+  #vote-results-panel,#vote-results {margin-top:14px}
   #vote-results-panel > summary {min-height:44px;align-content:center}
   #vote-invite {max-width:100%}
   .vote-heading {display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 16px}
@@ -458,25 +458,49 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
   .vote-submenu {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:14px 0}
   .vote-submenu button {min-width:0;min-height:48px;white-space:normal;line-height:1.2}
   .vote-submenu [aria-pressed="true"] {color:#ffe1a9;border-color:#bb83ac;background:#563151}
-  .vote-create-details,#vote-owner {margin-top:12px}
-  .vote-create-details form,#vote-owner label {margin-top:8px}
+  .vote-create-details {margin-top:12px}
+  .vote-create-details form {margin-top:8px}
   #vote-no-group {margin:10px 0 0;color:var(--muted)}
-  #vote-review,#vote-own {margin-top:14px}
-  .vote-active-group {border-color:#9c6e97;background:linear-gradient(135deg,#442447,#251936)}
+
+  #vote-group-view .group-workspace {padding:0}
+  .group-workspace-header {padding:16px clamp(14px,3vw,25px);border-radius:17px 17px 0 0;background:linear-gradient(110deg,#48274e,#291b3e)}
   .vote-group-header {display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-  .vote-group-header h3 {font-size:clamp(1.2rem,4vw,1.55rem);overflow-wrap:anywhere;margin:0}
-  .vote-group-header select {flex:1 1 14rem;max-width:26rem}
-  #vote-group-state {font-size:.8rem;color:var(--gold)}
-  #vote-owner {padding-bottom:0}
-  #vote-own-details {margin-top:10px}
-  .vote-group-results {padding-top:12px;border-top:1px solid var(--line)}
-  .vote-group-results h3 {margin-bottom:8px}
-  #vote-count,#vote-other-empty {color:var(--muted)}
-  .vote-receipt-banner h3:focus {outline:none}
-  .vote-receipt {border-color:#71bfa3}
-  .vote-receipt-banner {display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;background:#183c36;color:#dcfff0}
-  .vote-receipt-banner > span {display:grid;place-items:center;flex:none;width:36px;height:36px;border-radius:50%;background:#abebcc;color:#102e24;font-weight:800}
-  .vote-receipt-banner h3 {margin:0;font-size:1rem}
+  .vote-group-header h3 {flex:1 1 12rem;margin:0;font-size:clamp(1.2rem,4vw,1.65rem);overflow-wrap:anywhere}
+  .vote-group-header select {flex:1 1 12rem;max-width:26rem;font-weight:700}
+  #vote-group-state {font-size:.82rem;color:#ffe0ae}
+  #vote-owner {margin:0;padding:0;border:0}
+  #vote-owner > summary {align-content:center;min-height:44px;padding:5px 12px;border:1px solid #94719e;border-radius:10px;font-size:.85rem}
+  #vote-owner[open] {flex-basis:100%}
+  #vote-owner[open] > summary {width:fit-content}
+  #vote-owner label {margin-top:10px}
+  .group-workspace-body {padding:clamp(14px,3vw,25px)}
+  .group-workspace-body:has(> :not([hidden])) {border-top:1px solid var(--line)}
+  .group-workspace-body:not(:has(> :not([hidden]))) {display:none}
+  .group-workspace-body h3 {font-size:clamp(1.2rem,3vw,1.55rem);margin:0 0 12px}
+  #vote-choices {grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  #vote-choices label {padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#211832;font-size:.85rem}
+  #vote-choices label:first-child {border-color:#a98161}
+  #vote-choices label:last-child {border-color:#8d638e}
+  #vote-choices select {border-color:#6f5d83}
+  #vote-ballot .prono-actions {justify-content:flex-end}
+  #vote-ballot .primary,#vote-review-confirm {justify-content:center}
+  .group-votes-heading {display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+  #vote-own-title {margin:0 0 8px}
+  #vote-own-title:focus {outline:none}
+  #vote-count {color:var(--muted);font-size:.9rem}
+  #vote-own-details {margin:4px 0 12px;padding:0 10px;border:1px solid #4b8b77;border-radius:10px;background:#1b332f;color:#d7f7e9}
+  #vote-own-details summary {min-height:44px;align-content:center;font-size:.9rem}
+  #vote-other-empty,#vote-closed-notice {margin:0;color:var(--muted)}
+  .vote-member > summary {list-style:none;display:flex;align-items:center;gap:10px;min-height:52px}
+  .vote-member > summary::-webkit-details-marker {display:none}
+  .vote-member > summary::after {content:"";flex:none;width:7px;height:7px;border-bottom:2px solid #e4c6ed;border-right:2px solid #e4c6ed;transform:rotate(45deg);margin:0 4px 4px auto}
+  .vote-member[open] > summary::after {transform:rotate(225deg);margin-bottom:0}
+  .vote-member > summary img {width:36px;height:46px;object-fit:cover;border-radius:6px;flex:none}
+  .vote-member > summary span {min-width:0}
+  @media(max-width:540px) {
+    #vote-choices {grid-template-columns:1fr}
+    #vote-ballot .primary {width:100%}
+  }
   .vote-picks {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:0;list-style:none}
   .vote-pick {display:flex;align-items:center;gap:8px;min-width:0;padding:7px;border:1px solid var(--line);border-radius:10px;background:#211832}
   .vote-pick:first-child {border-color:#b78d58}
@@ -996,53 +1020,55 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
       </div>
       <div id="vote-group-view" hidden>
         <p id="vote-no-group" class="prono-panel" hidden>Rejoins ou crée un groupe pour faire ton pronostic.</p>
-        <div id="vote-group-panel" class="prono-panel vote-active-group" hidden>
-          <div class="vote-group-header">
-            <h3 id="vote-group-name" hidden></h3>
-            <select id="vote-group" aria-label="Changer de groupe"></select>
-            <span id="vote-group-state" hidden>Votes fermés</span>
+        <div id="vote-group-panel" class="prono-panel group-workspace" hidden>
+          <header class="group-workspace-header">
+            <div class="vote-group-header">
+              <h3 id="vote-group-name" hidden></h3>
+              <select id="vote-group" aria-label="Changer de groupe"></select>
+              <span id="vote-group-state" hidden>Votes fermés</span>
+              <details id="vote-owner" hidden>
+                <summary>Gérer le groupe</summary>
+                <label>Code d’invitation <input id="vote-invite" readonly></label>
+                <div class="prono-actions">
+                  <button type="button" class="filter-favorites" id="vote-copy">Copier le code</button>
+                  <button type="button" class="filter-favorites" id="vote-rotate">Renouveler le code</button>
+                  <button type="button" class="filter-favorites" id="vote-close">Fermer les votes</button>
+                </div>
+              </details>
+            </div>
+          </header>
+          <div class="group-workspace-body">
+            <form id="vote-ballot" hidden>
+              <h3>Mon pronostic</h3>
+              <label>Nom affiché dans le groupe <input name="alias" required maxlength="70"></label>
+              <div id="vote-choices" class="prono-choices"></div>
+              <div class="prono-actions"><button class="btn primary">Vérifier mes choix</button></div>
+            </form>
+            <section id="vote-review" hidden aria-labelledby="vote-review-title">
+              <h3 id="vote-review-title" tabindex="-1">Vérifie ton pronostic</h3>
+              <div id="vote-review-picks"></div>
+              <p>Après validation, tes choix seront définitifs.</p>
+              <div class="prono-actions">
+                <button type="button" class="filter-favorites" id="vote-review-back">Revenir à mes choix</button>
+                <button type="button" class="btn primary" id="vote-review-confirm">Valider définitivement</button>
+              </div>
+              <p id="vote-review-status" role="status"></p>
+            </section>
+            <section id="vote-own" hidden aria-labelledby="vote-own-title">
+              <div class="group-votes-heading">
+                <h3 id="vote-own-title" tabindex="-1">Pronostics du groupe</h3>
+                <span id="vote-count"></span>
+              </div>
+              <details id="vote-own-details">
+                <summary>✓ Mon pronostic est enregistré</summary>
+                <div id="vote-own-picks"></div>
+              </details>
+              <p id="vote-other-empty">Les pronostics des autres membres s’afficheront ici après leur vote.</p>
+              <div id="vote-list" class="vote-member-grid"></div>
+            </section>
+            <p id="vote-closed-notice" hidden>Les votes de ce groupe sont terminés.</p>
           </div>
-        <details id="vote-owner" hidden>
-          <summary>Gérer le groupe</summary>
-          <label>Code d’invitation <input id="vote-invite" readonly></label>
-          <div class="prono-actions">
-            <button type="button" class="filter-favorites" id="vote-copy">Copier le code</button>
-            <button type="button" class="filter-favorites" id="vote-rotate">Renouveler le code</button>
-            <button type="button" class="filter-favorites" id="vote-close">Fermer les votes</button>
-          </div>
-        </details>
-      </div>
-      <form id="vote-ballot" class="prono-panel" hidden>
-        <h3>Faire mon pronostic</h3>
-        <label>Nom affiché dans le groupe <input name="alias" required maxlength="70"></label>
-        <div id="vote-choices" class="prono-choices"></div>
-        <div class="prono-actions"><button class="btn primary">Vérifier mon pronostic</button></div>
-      </form>
-      <section id="vote-review" class="prono-panel" hidden aria-labelledby="vote-review-title">
-        <h3 id="vote-review-title" tabindex="-1">Vérifie ton pronostic</h3>
-        <div id="vote-review-picks"></div>
-        <p>Après validation, tes choix seront définitifs.</p>
-        <div class="prono-actions">
-          <button type="button" class="filter-favorites" id="vote-review-back">Revenir à mes choix</button>
-          <button type="button" class="btn primary" id="vote-review-confirm">Valider définitivement</button>
         </div>
-        <p id="vote-review-status" role="status"></p>
-      </section>
-      <section id="vote-own" class="prono-panel vote-receipt" hidden aria-labelledby="vote-own-title">
-        <div class="vote-receipt-banner">
-          <span aria-hidden="true">✓</span>
-          <h3 id="vote-own-title" tabindex="-1">Pronostic enregistré</h3>
-        </div>
-        <details id="vote-own-details">
-          <summary>Voir mon pronostic</summary>
-          <div id="vote-own-picks"></div>
-        </details>
-        <div class="vote-group-results" aria-labelledby="vote-reveal-title">
-          <h3 id="vote-reveal-title">Votes du groupe <span id="vote-count"></span></h3>
-          <p id="vote-other-empty">Les autres pronostics apparaîtront après leur validation.</p>
-          <div id="vote-list" class="vote-member-grid"></div>
-        </div>
-      </section>
         <details id="vote-results-panel" class="prono-panel" hidden>
           <summary>Résultats officiels · Organisation</summary>
           <form id="vote-results">
@@ -1532,7 +1558,8 @@ function syncView() {
   ballot.hidden = !canVote || Boolean(draft);
   byId('vote-review').hidden = !canVote || !draft;
   byId('vote-own').hidden = !ready || !ownVote;
-  byId('vote-group-state').hidden = !ready || !closed;
+  byId('vote-group-state').hidden = !ready || !closed || ownVote === false;
+  byId('vote-closed-notice').hidden = !ready || !closed || ownVote !== false;
   byId('vote-ranking-label').textContent = ready ? groupData.name : 'Choisis un groupe dans Pronostics.';
   renderContestRankings(ready && ownVote && results
     ? votes.map(vote => ({nom: vote.name, points: pointsForVote(vote, results)}))
@@ -1565,19 +1592,26 @@ function renderVotes() {
   const others = votes.filter(vote => vote.uid !== user?.uid);
   const list = byId('vote-list');
   const open = new Set([...list.querySelectorAll('details[open]')].map(row => row.dataset.uid));
-  byId('vote-count').textContent = '(' + others.length + ')';
+  const total = others.length + (ownVote ? 1 : 0);
+  byId('vote-count').textContent = total + (total === 1 ? ' vote' : ' votes');
   byId('vote-other-empty').hidden = others.length > 0;
   list.replaceChildren(...others.map(vote => {
     const row = document.createElement('details');
     const summary = document.createElement('summary');
     const name = document.createElement('strong');
     const winner = document.createElement('small');
+    const label = document.createElement('span');
+    const favorite = candidates[vote.top[0] - 1];
+    const portrait = favorite.querySelector('.photo-open img').cloneNode();
+    portrait.alt = '';
+    portrait.loading = 'lazy';
     row.className = 'vote-member';
     row.dataset.uid = vote.uid;
     row.open = open.has(vote.uid);
     name.textContent = vote.name;
     winner.textContent = 'Gagnante · ' + candidateLabels[vote.top[0] - 1];
-    summary.append(name, winner);
+    label.append(name, winner);
+    summary.append(portrait, label);
     row.append(summary, renderPicks(vote));
     return row;
   }));
@@ -1624,7 +1658,10 @@ function selectGroup(id) {
   stopGroup.push(onSnapshot(voteRef(id, uid), {includeMetadataChanges: true}, snapshot => {
     if (!current() || snapshot.metadata.hasPendingWrites || snapshot.metadata.fromCache) return;
     ownVote = snapshot.exists() ? snapshot.data() : false;
-    if (ownVote) byId('vote-own-picks').replaceChildren(renderPicks(ownVote));
+    if (ownVote) {
+      byId('vote-own-picks').replaceChildren(renderPicks(ownVote));
+      renderVotes();
+    }
     if (ownVote && !stopVotes) {
       stopVotes = onSnapshot(collection(db, 'groups', id, 'votes'), {includeMetadataChanges: true}, data => {
         if (!current() || data.metadata.fromCache) return;
@@ -1827,6 +1864,7 @@ byId('vote-review-confirm').addEventListener('click', act(async () => {
   if (revision !== groupRevision) return;
   ownVote = submitted;
   byId('vote-own-picks').replaceChildren(renderPicks(ownVote));
+  renderVotes();
   syncView();
   byId('vote-own-title').focus();
 }));
