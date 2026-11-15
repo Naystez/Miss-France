@@ -105,6 +105,7 @@ h1,h2{font-family:var(--display);font-weight:normal;line-height:1.02;letter-spac
 .dialog-head h2{font-size:clamp(1.4rem,5vw,2.3rem);margin:0 0 4px}
 .dialog-head .meta{margin:0}
 .dialog-close,.photo-step{border:1px solid #b89ba3;background:#fffaf4;color:var(--ink);border-radius:8px;min-width:40px;min-height:40px;cursor:pointer;font-size:1.1rem}
+.photo-step{touch-action:manipulation}
 .dialog-close:hover,.photo-step:hover{background:var(--wash)}
 .dialog-photo{margin:0}
 .dialog-stage{display:grid;grid-template-columns:40px minmax(0,1fr) 40px;align-items:center;gap:7px;background:#301827;border-radius:9px;padding:7px}
@@ -670,7 +671,6 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
       <li class="rule"><div class="points"><strong>10</strong><span>points</span></div><h3>Dauphine au bon rang</h3><p>Vous trouvez sa place exacte, de la 1ʳᵉ à la 4ᵉ dauphine.</p></li>
       <li class="rule"><div class="points"><strong>30</strong><span>points</span></div><h3>Miss France</h3><p>La candidate placée première dans votre pronostic remporte la couronne.</p></li>
     </ul>
-    <p class="rules-example">Par exemple, votre 2ᵉ choix rapporte <strong>10 points</strong> si elle termine 2ᵉ, ou <strong>6 points</strong> si elle gagne.</p>
     <div class="bonus"><strong class="bonus-score">+5 points</strong><p><strong>Bonus</strong> · Désignez une seule candidate. Si elle trébuche pendant la finale, les 5 points s’ajoutent à votre score.</p></div>
     <p class="rules-example"><strong>Score maximum avec le bonus</strong> · 75 points. En cas d’égalité, les participants partagent la même place.</p>
   </section>
@@ -678,7 +678,6 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
     <div class="page-head">
       <p class="kicker">En lice pour la couronne</p>
       <h2 id="titre-candidates" tabindex="-1">Les candidates</h2>
-      <p>Repérez vos favorites parmi les 31 candidates. Chaque fiche contient huit photos.</p>
     </div>
     <div class="gallery-tools">
       <label for="recherche">Rechercher une candidate
@@ -1388,7 +1387,7 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
       {transform:'scale(1.35) rotate(12deg)', offset:.55},
       {transform:'scale(1) rotate(0)'}
     ], 700);
-    window.setTimeout(() => toast.remove(), 3600);
+    window.setTimeout(() => toast.remove(), kind === 'favorite' ? 2200 : 3600);
   }
 
   function toggleFavorite(name, fromCard = false) {
