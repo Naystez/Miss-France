@@ -22,6 +22,7 @@ header{border-bottom:1px solid var(--line)}
 .brand-mark{display:grid;place-items:center;width:36px;height:36px;border:1px solid #ccaf96;border-radius:50%;color:var(--wine)}
 nav{display:flex;gap:6px}
 nav a{padding:8px 15px;text-decoration:none;border-radius:99px;color:var(--muted);font-size:.88rem;font-weight:650;white-space:nowrap}
+body > header nav .nav-icon{display:none}
 nav a:hover{background:var(--wash)}
 nav a[aria-current="page"]{background:var(--ink);color:var(--paper)}
 main{padding-block:30px 48px;min-height:calc(100vh - 160px)}
@@ -419,6 +420,11 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
     min-width:0;min-height:48px;padding:4px 2px;border-radius:10px;
     font-size:clamp(.72rem,2.85vw,.92rem);line-height:1.15;text-align:center;
     white-space:nowrap;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  }
+  body > header nav .nav-icon {display:block;width:17px;height:17px;flex:none}
+  @media(max-width:350px) {
+    body > header nav a {font-size:.68rem}
   }
   body > header nav a:focus-visible {outline-offset:-3px}
   .gallery-tools {align-items:stretch;flex-direction:column}
@@ -585,11 +591,11 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
   <div class="wrap header-inner">
     <a class="brand" href="#accueil"><span class="brand-mark" aria-hidden="true">✦</span> Miss France 2027</a>
     <nav aria-label="Navigation principale">
-      <a href="#accueil" aria-current="page">Accueil</a>
-      <a href="#regles">Règles</a>
-      <a href="#candidates">Candidates</a>
-      <a href="#pronostics">Pronostics</a>
-      <a href="#classement">Classement</a>
+      <a href="#accueil" aria-current="page"><svg class="nav-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21v-7h6v7"/></svg><span>Accueil</span></a>
+      <a href="#regles"><svg class="nav-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 12h7m-7 4h7"/></svg><span>Règles</span></a>
+      <a href="#candidates"><svg class="nav-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m3 6 5 5 4-7 4 7 5-5-2 12H5z"/><path d="M5 21h14"/></svg><span>Candidates</span></a>
+      <a href="#pronostics"><svg class="nav-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4H5v17h14V4h-3"/><rect x="8" y="2" width="8" height="5" rx="1"/><path d="m8 14 3 3 5-6"/></svg><span>Pronostics</span></a>
+      <a href="#classement"><svg class="nav-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8m-4-4v4M7 4h10v7a5 5 0 0 1-10 0zM7 6H3v2a4 4 0 0 0 4 4m10-6h4v2a4 4 0 0 1-4 4"/></svg><span>Classement</span></a>
     </nav>
   </div>
 </header>
