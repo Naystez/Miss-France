@@ -496,7 +496,19 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
   #vote-owner label {margin-top:8px}
   .ballot-heading {display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}
   #vote-progress {color:var(--gold);font-size:.85rem}
-  #vote-favorite-shortcuts {margin-top:12px}
+  #vote-favorite-shortcuts {margin:0 0 12px}
+  #vote-favorite-cards {max-height:12rem;overflow:auto;overscroll-behavior:contain;padding:4px}
+  .official-fields fieldset {min-width:0;border:1px solid var(--line);border-radius:12px;margin:14px 0;padding:10px 12px}
+  .official-fields legend {font-weight:750;padding-inline:4px}
+  .official-count {margin:0 0 4px;color:var(--gold);font-size:.9rem}
+  .official-options {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:2px 8px;max-height:15rem;overflow:auto;padding:3px}
+  .official-options label {display:flex;align-items:center;gap:8px;min-height:44px;font-size:.85rem;overflow-wrap:anywhere}
+  .official-options input[type="checkbox"] {flex:none;width:18px;height:18px;min-height:0;accent-color:#ffd289}
+  .official-options label:has(input:disabled) {opacity:.65}
+  .official-review-grid {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px}
+  .official-review-grid ul,.official-review-grid ol {padding-left:1.3em;margin-top:4px}
+  #vote-results-message {color:var(--gold);margin:8px 0 0}
+  #vote-results-message:empty {display:none}
   #vote-favorite-target {font-size:.85rem;color:var(--muted);margin:4px 0 8px}
   #vote-favorite-cards {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,135px),1fr));gap:6px}
   #vote-favorite-cards button {display:flex;align-items:center;gap:7px;text-align:left;overflow-wrap:anywhere}
@@ -1080,13 +1092,13 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
                 <h3>Mon pronostic</h3>
                 <output id="vote-progress" aria-live="polite">0 choix sur 6</output>
               </div>
-              <label>Nom affiché dans le groupe <input name="alias" required maxlength="70"></label>
-              <div id="vote-choices" class="prono-choices"></div>
-              <details id="vote-favorite-shortcuts" hidden>
+              <details id="vote-favorite-shortcuts" open hidden>
                 <summary>Choisir dans mes favorites</summary>
                 <p id="vote-favorite-target"></p>
                 <div id="vote-favorite-cards"></div>
               </details>
+              <label>Nom affiché dans le groupe <input name="alias" required maxlength="70"></label>
+              <div id="vote-choices" class="prono-choices"></div>
               <div class="prono-actions"><button type="submit" class="btn primary">Vérifier mes choix</button></div>
             </form>
             <section id="vote-review" hidden aria-labelledby="vote-review-title">
@@ -1117,14 +1129,30 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
         <details id="vote-results-panel" class="prono-panel" hidden>
           <summary>Résultats officiels · Organisation</summary>
           <form id="vote-results">
-            <p>Publier les résultats ferme les votes dans tous les groupes.</p>
-            <div id="vote-result-top" class="prono-choices"></div>
-            <div class="prono-choices">
-              <label>Autres demi-finalistes <select id="vote-semi" multiple size="7"></select></label>
-              <label>Candidates ayant trébuché <select id="vote-trips" multiple size="7"></select></label>
+            <div id="vote-results-fields" class="official-fields">
+              <div id="vote-result-top" class="prono-choices"></div>
+              <fieldset>
+                <legend>Autres demi-finalistes</legend>
+                <p id="vote-semi-count" class="official-count" aria-live="polite">0 sur 10 sélectionnées</p>
+                <p>Les cinq finalistes sont incluses automatiquement dans le Top 15.</p>
+                <div class="official-options" id="vote-semi"></div>
+              </fieldset>
+              <details>
+                <summary>Candidates ayant trébuché</summary>
+                <div class="official-options" id="vote-trips"></div>
+              </details>
+              <div class="prono-actions"><button type="submit" class="btn primary">Vérifier les résultats</button></div>
             </div>
-            <p>Sur ordinateur, maintiens Ctrl ou ⌘ pour sélectionner plusieurs candidates. Les cinq finalistes sont incluses automatiquement parmi les demi-finalistes.</p>
-            <div class="prono-actions"><button class="btn primary">Publier les résultats</button></div>
+            <section id="vote-results-review" hidden aria-labelledby="vote-results-review-title">
+              <h3 id="vote-results-review-title" tabindex="-1">Vérifie les résultats officiels</h3>
+              <div id="vote-results-preview" class="official-review-grid"></div>
+              <p><strong>La publication ferme les votes dans tous les groupes.</strong></p>
+              <div class="prono-actions">
+                <button type="button" id="vote-results-back" class="filter-favorites">Modifier la saisie</button>
+                <button type="button" id="vote-results-publish" class="btn primary">Publier les résultats</button>
+              </div>
+            </section>
+            <p id="vote-results-message" role="status"></p>
           </form>
         </details>
       </div>
@@ -1313,6 +1341,11 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
     filterCandidates();
   }
 
+  function celebrate(element, keyframes, duration) {
+    if (!element || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    element.animate?.(keyframes, {duration, easing:'ease-out'});
+  }
+
   function toggleFavorite(name, fromCard = false) {
     const selected = favorites.has(name);
     if (selected) favorites.delete(name);
@@ -1325,6 +1358,15 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
     refreshFavorites();
     favoritesStatus.textContent = name + (selected ? ' a été retirée des favoris.' : ' a été ajoutée aux favoris.');
     if (fromCard && selected && favoritesOnly) favoritesFilter.focus();
+    if (!selected) {
+      const card = cards.find(item => item.name === name)?.card;
+      const control = fromCard ? card?.querySelector('[data-favorite]') : dialogFavorite;
+      celebrate(control, [
+        {transform:'scale(1)', boxShadow:'0 0 0 0 #ff9fc7a0'},
+        {transform:'scale(1.04)', boxShadow:'0 0 0 5px #ff9fc765', offset:.35},
+        {transform:'scale(1)', boxShadow:'0 0 0 12px #ff9fc700'}
+      ], 520);
+    }
     document.dispatchEvent(new Event('miss-france:favorites'));
   }
 
@@ -1588,10 +1630,63 @@ function makeFields(container, labels) {
 const ballotLabels = [...rankLabels, 'Bonus · Miss qui trébuche'];
 const voteFields = makeFields(byId('vote-choices'), ballotLabels);
 const resultFields = makeFields(byId('vote-result-top'), rankLabels);
-const semiField = byId('vote-semi');
-const tripsField = byId('vote-trips');
-fillCandidates(semiField);
-fillCandidates(tripsField);
+function makeResultChecks(container) {
+  return candidateLabels.map((name, index) => {
+    const label = document.createElement('label');
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.value = index + 1;
+    label.append(checkbox, name);
+    container.append(label);
+    return checkbox;
+  });
+}
+const semiChecks = makeResultChecks(byId('vote-semi'));
+const tripsChecks = makeResultChecks(byId('vote-trips'));
+const checkedResults = fields => fields.filter(field => field.checked).map(field => Number(field.value));
+let resultsDraft = null;
+
+function updateSemiChoices() {
+  const finalists = new Set(resultFields.map(field => Number(field.value)));
+  for (const field of semiChecks) {
+    if (finalists.has(Number(field.value))) field.checked = false;
+  }
+  const count = checkedResults(semiChecks).length;
+  for (const field of semiChecks) {
+    field.disabled = finalists.has(Number(field.value)) || (count >= 10 && !field.checked);
+  }
+  byId('vote-semi-count').textContent = count + ' sur 10 sélectionnées';
+  return count;
+}
+byId('vote-result-top').addEventListener('change', updateSemiChoices);
+byId('vote-semi').addEventListener('change', updateSemiChoices);
+
+function showResultsReview(review) {
+  byId('vote-results-fields').hidden = review;
+  byId('vote-results-review').hidden = !review;
+  byId('vote-results-message').textContent = '';
+}
+
+function renderResultsPreview({top, semi, trips}) {
+  const sections = [
+    ['Top 5 officiel', top, 'ol'],
+    ['Autres demi-finalistes', semi.filter(id => !top.includes(id)), 'ul'],
+    ['Bonus', trips, 'ul']
+  ];
+  byId('vote-results-preview').replaceChildren(...sections.map(([title, ids, listTag]) => {
+    const section = document.createElement('div');
+    const heading = document.createElement('strong');
+    const list = document.createElement(listTag);
+    heading.textContent = title;
+    for (const text of ids.length ? ids.map(id => candidateLabels[id - 1]) : ['Aucune candidate']) {
+      const item = document.createElement('li');
+      item.textContent = text;
+      list.append(item);
+    }
+    section.append(heading, list);
+    return section;
+  }));
+}
 
 let user;
 let activeGroup;
@@ -1606,6 +1701,9 @@ let groupRevision = 0;
 let stopGroup = [];
 let stopVotes = null;
 let stopResults = null;
+let stopManagement = [];
+let managementRevision = 0;
+let managedGroupData = null;
 
 const membershipRef = (uid, group) => doc(db, 'users', uid, 'groups', group);
 const groupRef = group => doc(db, 'groups', group);
@@ -1650,11 +1748,8 @@ function syncView() {
   const ready = Boolean(user?.emailVerified && groupData);
   byId('vote-group-panel').hidden = !user?.emailVerified || !groupSelect.value;
   byId('vote-group-name').textContent = groupData?.name || groupSelect.selectedOptions[0]?.textContent || '';
-  const canManage = ready && groupData.owner === user.uid && managedGroupSelect.value === activeGroup;
-  byId('vote-owner-actions').hidden = !canManage;
-  byId('vote-copy').disabled = !byId('vote-invite').value;
+  syncManagement();
   const closed = Boolean(groupData?.closed || results);
-  byId('vote-close').disabled = closed;
   const canVote = ready && ownVote === false && !closed;
   if (!canVote) draft = null;
   ballot.hidden = !canVote || Boolean(draft);
@@ -1736,7 +1831,8 @@ function refreshBallot() {
       refreshBallot();
       saveBallot();
       const empty = voteFields.find(field => !field.value);
-      (empty || ballot.querySelector('button[type="submit"]')).focus();
+      const nextCard = byId('vote-favorite-cards').querySelector('button:not(:disabled)');
+      (nextCard || empty || ballot.querySelector('button[type="submit"]')).focus({preventScroll: Boolean(nextCard)});
     });
     return button;
   })));
@@ -1918,6 +2014,35 @@ function renderVotes() {
   }));
 }
 
+function syncManagement() {
+  const canManage = Boolean(user?.emailVerified && managedGroupData?.owner === user.uid);
+  byId('vote-owner-actions').hidden = !canManage;
+  byId('vote-copy').disabled = !canManage || !byId('vote-invite').value;
+  byId('vote-close').disabled = !canManage || Boolean(managedGroupData?.closed || results);
+}
+
+function selectManagedGroup(id) {
+  const revision = ++managementRevision;
+  stopManagement.forEach(stop => stop());
+  stopManagement = [];
+  managedGroupData = null;
+  byId('vote-invite').value = '';
+  syncManagement();
+  if (!id || !user?.emailVerified) return;
+  const current = () => revision === managementRevision;
+  const fail = error => { if (current()) message(describe(error)); };
+  stopManagement.push(onSnapshot(groupRef(id), snapshot => {
+    if (!current()) return;
+    managedGroupData = snapshot.data();
+    syncManagement();
+  }, fail));
+  stopManagement.push(onSnapshot(privateInviteRef(id), snapshot => {
+    if (!current()) return;
+    byId('vote-invite').value = snapshot.data()?.token || '';
+    syncManagement();
+  }, fail));
+}
+
 function resetGroup() {
   groupRevision++;
   stopGroup.forEach(stop => stop());
@@ -1932,7 +2057,6 @@ function resetGroup() {
   votes = [];
   ballot.reset();
   refreshBallot();
-  byId('vote-invite').value = '';
   renderVotes();
   syncView();
 }
@@ -1950,14 +2074,6 @@ function selectGroup(id) {
     if (!current()) return;
     groupData = snapshot.data();
     syncView();
-    if (groupData?.owner === uid) {
-      getDocFromServer(privateInviteRef(id)).then(invite => {
-        if (current() && invite.exists()) {
-          byId('vote-invite').value = invite.data().token;
-          syncView();
-        }
-      }).catch(fail);
-    }
   }, fail));
   stopGroup.push(onSnapshot(voteRef(id, uid), {includeMetadataChanges: true}, snapshot => {
     if (!current() || snapshot.metadata.hasPendingWrites || snapshot.metadata.fromCache) return;
@@ -1978,21 +2094,10 @@ function selectGroup(id) {
     syncView();
   }, fail));
 }
-groupSelect.addEventListener('change', () => {
-  managedGroupSelect.value = groupSelect.value;
-  if (!managedGroupSelect.value) managedGroupSelect.value = '';
-  selectGroup(groupSelect.value);
-});
-managedGroupSelect.addEventListener('change', () => {
-  if (!managedGroupSelect.value || managedGroupSelect.value === groupSelect.value) {
-    syncView();
-    return;
-  }
-  groupSelect.value = managedGroupSelect.value;
-  selectGroup(groupSelect.value);
-});
+groupSelect.addEventListener('change', () => selectGroup(groupSelect.value));
+managedGroupSelect.addEventListener('change', () => selectManagedGroup(managedGroupSelect.value));
 
-async function loadGroups(preferred) {
+async function loadGroups(preferred, preferredManaged = managedGroupSelect.value) {
   const revision = sessionRevision;
   const uid = user.uid;
   const snapshots = await getDocsFromServer(collection(db, 'users', uid, 'groups'));
@@ -2005,7 +2110,8 @@ async function loadGroups(preferred) {
   const owned = options.filter(group => group.data().owner === uid);
   managedGroupSelect.replaceChildren(new Option('Choisir un groupe', ''),
     ...owned.map(group => new Option(group.data().name, group.id)));
-  managedGroupSelect.value = owned.some(group => group.id === groupSelect.value) ? groupSelect.value : '';
+  managedGroupSelect.value = owned.some(group => group.id === preferredManaged) ? preferredManaged : owned[0]?.id || '';
+  selectManagedGroup(managedGroupSelect.value);
   byId('vote-owner').hidden = owned.length === 0;
   const hasGroups = options.length > 0;
   groupSelect.hidden = options.length < 2;
@@ -2021,7 +2127,13 @@ async function startSession(account) {
   stopResults = null;
   user = account;
   results = null;
+  managedGroupSelect.value = '';
+  selectManagedGroup('');
   resetGroup();
+  resultsDraft = null;
+  resultsForm.reset();
+  updateSemiChoices();
+  showResultsReview(false);
   authForm.hidden = Boolean(user);
   byId('vote-session').hidden = !user;
   byId('vote-groups').hidden = !user?.emailVerified;
@@ -2095,7 +2207,7 @@ byId('vote-create').addEventListener('submit', act(async event => {
   makeInvite(batch, group.id);
   await batch.commit();
   form.reset();
-  await loadGroups(group.id);
+  await loadGroups(groupSelect.value || group.id, group.id);
   showVoteView('join');
   byId('vote-owner').open = true;
   byId('vote-owner').querySelector('summary').focus();
@@ -2137,20 +2249,17 @@ byId('vote-copy').addEventListener('click', act(async () => {
 }));
 byId('vote-rotate').addEventListener('click', act(async () => {
   if (!confirm('Remplacer le code actuel ? Les membres déjà inscrits gardent leur accès.')) return;
-  const group = activeGroup;
-  if (managedGroupSelect.value !== group || groupData?.owner !== user?.uid) return;
+  const group = managedGroupSelect.value;
+  if (!group || managedGroupData?.owner !== user?.uid) return;
   const batch = writeBatch(db);
-  const token = makeInvite(batch, group);
+  makeInvite(batch, group);
   await batch.commit();
-  if (activeGroup === group) {
-    byId('vote-invite').value = token;
-  }
   message('Code renouvelé.');
 }));
 byId('vote-close').addEventListener('click', act(async () => {
   if (!confirm('Fermer définitivement les votes de ce groupe ?')) return;
-  const group = activeGroup;
-  if (managedGroupSelect.value !== group || groupData?.owner !== user?.uid) return;
+  const group = managedGroupSelect.value;
+  if (!group || managedGroupData?.owner !== user?.uid) return;
   await updateDoc(groupRef(group), {closed: true});
   message('Votes fermés.');
 }));
@@ -2196,13 +2305,45 @@ byId('vote-review-confirm').addEventListener('click', act(async () => {
   renderVotes();
   syncView();
   byId('vote-own-title').focus();
+  celebrate(byId('vote-own-details'), [
+    {transform:'translateY(5px) scale(.98)', boxShadow:'0 0 0 0 #abebcc90'},
+    {transform:'translateY(0) scale(1.015)', boxShadow:'0 0 14px 5px #abebcc50', offset:.45},
+    {transform:'translateY(0) scale(1)', boxShadow:'0 0 20px 12px #abebcc00'}
+  ], 750);
 }));
-resultsForm.addEventListener('submit', act(async () => {
-  const top = readTop(resultFields);
-  const semi = [...new Set([...top, ...Array.from(semiField.selectedOptions, item => Number(item.value))])];
-  const trips = Array.from(tripsField.selectedOptions, item => Number(item.value));
-  if (!confirm('Publier les résultats et fermer les votes dans tous les groupes ?')) return;
-  await setDoc(resultsRef, {top, semi, trips});
+resultsForm.addEventListener('submit', event => {
+  event.preventDefault();
+  if (busy || resultsPanel.hidden || resultsDraft) return;
+  try {
+    const top = readTop(resultFields);
+    if (updateSemiChoices() !== 10) throw new Error('Sélectionne exactement 10 autres demi-finalistes.');
+    resultsDraft = {top, semi:[...top, ...checkedResults(semiChecks)], trips:checkedResults(tripsChecks)};
+    renderResultsPreview(resultsDraft);
+    showResultsReview(true);
+    byId('vote-results-review-title').focus();
+  } catch (error) {
+    byId('vote-results-message').textContent = error.message;
+  }
+});
+byId('vote-results-back').addEventListener('click', () => {
+  if (busy) return;
+  resultsDraft = null;
+  showResultsReview(false);
+  resultFields[0].focus();
+});
+byId('vote-results-publish').addEventListener('click', act(async () => {
+  if (resultsPanel.hidden || !resultsDraft) return;
+  const revision = sessionRevision;
+  try {
+    await setDoc(resultsRef, resultsDraft);
+  } catch (error) {
+    if (revision === sessionRevision) byId('vote-results-message').textContent = describe(error);
+    throw error;
+  }
+  if (revision !== sessionRevision) return;
+  resultsDraft = null;
+  showResultsReview(false);
+  byId('vote-results-message').textContent = 'Résultats publiés pour tous les groupes.';
   message('Résultats publiés pour tous les groupes.');
 }));
 
