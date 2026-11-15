@@ -45,7 +45,7 @@ h1,h2{font-family:var(--display);font-weight:normal;line-height:1.02;letter-spac
 .hero a:focus-visible{outline-color:var(--gold)}
 .crown-art{position:relative;width:100%;padding:8px 25px 8px 0}
 .crown-art svg{width:100%;height:auto;display:block}
-.facts{display:grid;grid-template-columns:repeat(3,1fr);margin-top:18px;border:1px solid var(--line);border-radius:13px;background:#fffaf4}
+.facts{display:grid;grid-template-columns:repeat(2,1fr);margin-top:18px;border:1px solid var(--line);border-radius:13px;background:#fffaf4}
 .fact{padding:17px 23px}
 .fact+.fact{border-left:1px solid var(--line)}
 .fact span{display:block;font-size:.68rem;text-transform:uppercase;letter-spacing:.14em;font-weight:800;color:var(--wine)}
@@ -90,7 +90,7 @@ h1,h2{font-family:var(--display);font-weight:normal;line-height:1.02;letter-spac
   .wrap{width:calc(100% - 28px)}.header-inner{flex-wrap:wrap;gap:6px;padding-block:9px}.brand{font-size:1rem}.brand-mark{width:28px;height:28px}
   nav{width:100%}nav a{padding:7px 13px}.hero{grid-template-columns:1fr;min-height:0}.hero-copy{padding:31px 23px 0}.hero h1{font-size:clamp(3.6rem,14.2vw,5.6rem);margin-bottom:14px}
   .hero h1 em{display:inline-block}.hero-copy>p:not(.kicker){margin-bottom:15px}.crown-art{width:min(85%,350px);margin:-8px auto 7px;padding:0}
-  .facts{grid-template-columns:1fr 1fr;margin-top:12px}.fact{padding:11px 12px}.fact:last-child{grid-column:1/-1;border-left:0;border-top:1px solid var(--line)}
+  .facts{margin-top:12px}.fact{padding:11px 12px}
   main{padding-top:16px}.page-head{padding-top:14px}.gallery{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.profile{padding:10px}.profile h3{font-size:1.15rem}
   .rule{padding:14px}.rule h3{font-size:1.18rem}.points strong{font-size:2.65rem}.bonus{gap:13px;padding:11px 13px}.gallery-tools{align-items:start;flex-direction:column;gap:6px}.gallery-tools label{width:100%}
 }
@@ -413,12 +413,12 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
     display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);grid-template-columns:none;
     align-items:stretch;gap:2px;
     padding:6px max(5px,env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(5px,env(safe-area-inset-left));
-    background:#1a122b;border-top:1px solid #634775;
+    background:#351b3a;border-top:1px solid #9e608c;
   }
   body > header nav a {
     min-width:0;min-height:48px;padding:4px 2px;border-radius:10px;
-    font-size:clamp(.68rem,2.7vw,.88rem);line-height:1.15;text-align:center;
-    white-space:normal;overflow-wrap:anywhere;
+    font-size:clamp(.72rem,2.85vw,.92rem);line-height:1.15;text-align:center;
+    white-space:nowrap;
   }
   body > header nav a:focus-visible {outline-offset:-3px}
   .gallery-tools {align-items:stretch;flex-direction:column}
@@ -497,8 +497,6 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
   #vote-owner label {margin-top:8px}
   .ballot-heading {display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}
   #vote-progress {color:var(--gold);font-size:.85rem}
-  #vote-favorite-shortcuts {margin:0 0 12px}
-  #vote-favorite-cards {max-height:12rem;overflow:auto;overscroll-behavior:contain;padding:4px}
   .official-fields fieldset {min-width:0;border:1px solid var(--line);border-radius:12px;margin:14px 0;padding:10px 12px}
   .official-fields legend {font-weight:750;padding-inline:4px}
   .official-count {margin:0 0 4px;color:var(--gold);font-size:.9rem}
@@ -510,11 +508,6 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
   .official-review-grid ul,.official-review-grid ol {padding-left:1.3em;margin-top:4px}
   #vote-results-message {color:var(--gold);margin:8px 0 0}
   #vote-results-message:empty {display:none}
-  #vote-favorite-target {font-size:.85rem;color:var(--muted);margin:4px 0 8px}
-  #vote-favorite-cards {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,135px),1fr));gap:6px}
-  #vote-favorite-cards button {display:flex;align-items:center;gap:7px;text-align:left;overflow-wrap:anywhere}
-  #vote-favorite-cards img {width:32px;height:42px;object-fit:cover;border-radius:5px;flex:none}
-  #vote-favorite-cards button:disabled {opacity:.55;cursor:default}
   .score-breakdown {font-size:.83rem;font-weight:400;margin-top:4px}
   .score-breakdown summary {cursor:pointer;color:var(--gold);min-height:34px;align-content:center}
   .score-breakdown ul {margin:3px 0 8px;padding-left:16px}
@@ -657,7 +650,6 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
     <div class="facts">
       <div class="fact"><span>La finale</span><strong>12 décembre 2026</strong></div>
       <div class="fact"><span>Le lieu</span><strong>Arena Futuroscope</strong></div>
-      <div class="fact"><span>En lice</span><strong>31 candidates régionales</strong></div>
     </div>
   </section>
   <section id="regles" hidden aria-labelledby="titre-regles">
@@ -1106,11 +1098,6 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
                 <h3>Mon pronostic</h3>
                 <output id="vote-progress" aria-live="polite">0 choix sur 6</output>
               </div>
-              <details id="vote-favorite-shortcuts" open hidden>
-                <summary>Choisir dans mes favorites</summary>
-                <p id="vote-favorite-target"></p>
-                <div id="vote-favorite-cards"></div>
-              </details>
               <label>Nom affiché dans le groupe <input name="alias" required maxlength="70"></label>
               <div id="vote-choices" class="prono-choices"></div>
               <div class="prono-actions"><button type="submit" class="btn primary">Vérifier mes choix</button></div>
@@ -1839,7 +1826,6 @@ function scoreVote(vote, official) {
 function refreshBallot() {
   const selected = voteFields.map(field => field.value);
   const top = selected.slice(0, rankLabels.length);
-  const next = selected.indexOf('');
   byId('vote-progress').textContent = selected.filter(Boolean).length + ' choix sur ' + voteFields.length;
   const favoriteCards = candidates.filter(card => favorites.has(card.querySelector('h3').textContent));
   const favoriteIds = new Set(favoriteCards.map(card => String(candidates.indexOf(card) + 1)));
@@ -1858,32 +1844,6 @@ function refreshBallot() {
       option.disabled = rank < rankLabels.length && option.value !== field.value && top.includes(option.value);
     }
   });
-
-  const shortcut = byId('vote-favorite-shortcuts');
-  shortcut.hidden = next < 0 || favoriteCards.length === 0;
-  byId('vote-favorite-target').textContent = next < 0 ? '' : 'Ajouter à « ' + ballotLabels[next] + ' »';
-  byId('vote-favorite-cards').replaceChildren(...(shortcut.hidden ? [] : favoriteCards.map(card => {
-    const index = candidates.indexOf(card);
-    const button = document.createElement('button');
-    const image = card.querySelector('.photo-open img').cloneNode();
-    const name = document.createElement('span');
-    button.type = 'button';
-    button.className = 'filter-favorites';
-    button.disabled = next < rankLabels.length && top.includes(String(index + 1));
-    image.alt = '';
-    image.loading = 'lazy';
-    name.textContent = card.querySelector('h3').textContent;
-    button.append(image, name);
-    button.addEventListener('click', () => {
-      voteFields[next].value = String(index + 1);
-      refreshBallot();
-      saveBallot();
-      const empty = voteFields.find(field => !field.value);
-      const nextCard = byId('vote-favorite-cards').querySelector('button:not(:disabled)');
-      (nextCard || empty || ballot.querySelector('button[type="submit"]')).focus({preventScroll: Boolean(nextCard)});
-    });
-    return button;
-  })));
 }
 
 function ballotKey() {
