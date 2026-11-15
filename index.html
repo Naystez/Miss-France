@@ -532,6 +532,21 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
   .group-votes-heading {display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
   #vote-own-title {margin:0 0 8px}
   #vote-own-title:focus {outline:none}
+  .celebration-toast {
+    position:fixed;z-index:30;inset:calc(12px + env(safe-area-inset-top)) 12px auto;
+    width:min(100% - 24px,390px);margin-inline:auto;padding:13px 16px;
+    display:flex;align-items:center;gap:12px;pointer-events:none;
+    border:2px solid #ffb2d9;border-radius:14px;background:#4a2141;color:#fff5fb;
+    box-shadow:0 8px 30px #140e23bb;overflow-wrap:anywhere;
+  }
+  .celebration-toast.is-vote {border-color:#99e9c3;background:#153a31;color:#edfff4}
+  .celebration-icon {
+    flex:none;display:grid;place-items:center;width:40px;height:40px;border-radius:50%;
+    background:#ffb2d9;color:#512044;font-size:1.35rem;font-weight:800;
+  }
+  .celebration-toast.is-vote .celebration-icon {background:#99e9c3;color:#133a2f}
+  .celebration-toast strong,.celebration-toast small {display:block}
+  .celebration-toast small {margin-top:2px;font-size:.83rem}
   #vote-count {color:var(--muted);font-size:.9rem}
   #vote-own-details {margin:4px 0 12px;padding:0 10px;border:1px solid #4b8b77;border-radius:10px;background:#1b332f;color:#d7f7e9}
   #vote-own-details summary {min-height:44px;align-content:center;font-size:.9rem}
@@ -1116,7 +1131,7 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
                 <h3 id="vote-own-title" tabindex="-1">Pronostics du groupe</h3>
                 <span id="vote-count"></span>
               </div>
-              <details id="vote-own-details">
+              <details id="vote-own-details" open>
                 <summary>✓ Mon pronostic est enregistré</summary>
                 <div id="vote-own-picks"></div>
               </details>
@@ -1346,6 +1361,36 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
     element.animate?.(keyframes, {duration, easing:'ease-out'});
   }
 
+  function showCelebration(title, detail, kind, host = document.body) {
+    document.querySelector('.celebration-toast')?.remove();
+    const toast = document.createElement('div');
+    const icon = document.createElement('span');
+    const content = document.createElement('div');
+    const heading = document.createElement('strong');
+    const subtitle = document.createElement('small');
+    toast.className = 'celebration-toast' + (kind === 'vote' ? ' is-vote' : '');
+    toast.setAttribute('role', 'status');
+    icon.className = 'celebration-icon';
+    icon.setAttribute('aria-hidden', 'true');
+    host.append(toast);
+    icon.textContent = kind === 'vote' ? '✓' : '♥';
+    heading.textContent = title;
+    subtitle.textContent = detail;
+    content.append(heading, subtitle);
+    toast.append(icon, content);
+    celebrate(toast, [
+      {transform:'translateY(-70px) scale(.84)', opacity:0},
+      {transform:'translateY(5px) scale(1.04)', opacity:1, offset:.62},
+      {transform:'translateY(0) scale(1)', opacity:1}
+    ], 520);
+    celebrate(icon, [
+      {transform:'scale(.55) rotate(-20deg)'},
+      {transform:'scale(1.35) rotate(12deg)', offset:.55},
+      {transform:'scale(1) rotate(0)'}
+    ], 700);
+    window.setTimeout(() => toast.remove(), 3600);
+  }
+
   function toggleFavorite(name, fromCard = false) {
     const selected = favorites.has(name);
     if (selected) favorites.delete(name);
@@ -1356,16 +1401,17 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
       // La sélection reste en mémoire pendant la visite.
     }
     refreshFavorites();
-    favoritesStatus.textContent = name + (selected ? ' a été retirée des favoris.' : ' a été ajoutée aux favoris.');
+    favoritesStatus.textContent = selected ? name + ' a été retirée des favoris.' : '';
     if (fromCard && selected && favoritesOnly) favoritesFilter.focus();
     if (!selected) {
       const card = cards.find(item => item.name === name)?.card;
       const control = fromCard ? card?.querySelector('[data-favorite]') : dialogFavorite;
       celebrate(control, [
         {transform:'scale(1)', boxShadow:'0 0 0 0 #ff9fc7a0'},
-        {transform:'scale(1.04)', boxShadow:'0 0 0 5px #ff9fc765', offset:.35},
-        {transform:'scale(1)', boxShadow:'0 0 0 12px #ff9fc700'}
-      ], 520);
+        {transform:'scale(1.08)', boxShadow:'0 0 0 6px #ff9fc790', offset:.35},
+        {transform:'scale(1)', boxShadow:'0 0 0 14px #ff9fc700'}
+      ], 720);
+      showCelebration('Ajoutée aux favorites', name, 'favorite', fromCard ? document.body : dialogFavorite.closest('dialog'));
     }
     document.dispatchEvent(new Event('miss-france:favorites'));
   }
@@ -1592,7 +1638,10 @@ function showVoteView(view) {
     panel.hidden = !selected;
   }
   if (view === 'stats') renderVoteStats();
-  if (view === 'group') refreshBallot();
+  if (view === 'group') {
+    byId('vote-own-details').open = true;
+    refreshBallot();
+  }
 }
 for (const [view, [button]] of voteTabs) {
   button.addEventListener('click', () => showVoteView(view));
@@ -2051,7 +2100,7 @@ function resetGroup() {
   stopVotes = null;
   activeGroup = groupData = ownVote = draft = null;
   byId('vote-own-picks').replaceChildren();
-  byId('vote-own-details').open = false;
+  byId('vote-own-details').open = true;
   byId('vote-stats-details').open = false;
   byId('vote-review-status').textContent = '';
   votes = [];
@@ -2300,16 +2349,18 @@ byId('vote-review-confirm').addEventListener('click', act(async () => {
   }
   if (revision !== groupRevision) return;
   ownVote = submitted;
+  byId('vote-own-details').open = true;
   clearSavedBallot();
   byId('vote-own-picks').replaceChildren(renderPicks(ownVote));
   renderVotes();
   syncView();
   byId('vote-own-title').focus();
+  showCelebration('Pronostic validé !', 'Ton vote est enregistré.', 'vote');
   celebrate(byId('vote-own-details'), [
-    {transform:'translateY(5px) scale(.98)', boxShadow:'0 0 0 0 #abebcc90'},
-    {transform:'translateY(0) scale(1.015)', boxShadow:'0 0 14px 5px #abebcc50', offset:.45},
-    {transform:'translateY(0) scale(1)', boxShadow:'0 0 20px 12px #abebcc00'}
-  ], 750);
+    {transform:'translateY(9px) scale(.97)', boxShadow:'0 0 0 0 #abebcc90'},
+    {transform:'translateY(0) scale(1.025)', boxShadow:'0 0 20px 6px #abebcc80', offset:.4},
+    {transform:'translateY(0) scale(1)', boxShadow:'0 0 24px 14px #abebcc00'}
+  ], 950);
 }));
 resultsForm.addEventListener('submit', event => {
   event.preventDefault();
