@@ -513,6 +513,12 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
   .vote-group-header h3 {flex:1 1 12rem;margin:0;font-size:clamp(1.2rem,4vw,1.65rem);overflow-wrap:anywhere}
   .vote-group-header select {flex:1 1 12rem;max-width:26rem;font-weight:700}
   #vote-group-state {font-size:.82rem;color:#ffe0ae}
+  #vote-members {margin:10px 0 0;padding-bottom:0}
+  #vote-members summary {min-height:44px;align-content:center}
+  #vote-member-status {margin:0;color:var(--muted);font-size:.85rem}
+  #vote-member-list {display:flex;flex-wrap:wrap;gap:7px;margin:4px 0 2px;padding:0;list-style:none}
+  #vote-member-list li {min-width:0;max-width:100%;overflow-wrap:anywhere;padding:5px 9px;border-radius:9px;background:#30243f;font-size:.87rem}
+  #vote-member-list .is-own-member {color:var(--gold);font-weight:700}
   #vote-owner {margin-top:12px;padding:10px clamp(14px,3vw,25px) 14px}
   #vote-owner > summary {min-height:44px;align-content:center}
   #vote-owner label {margin-top:8px}
@@ -1065,12 +1071,19 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
       <div class="prono-choices">
         <label>E-mail <input name="email" type="email" required autocomplete="email"></label>
         <label>Mot de passe <input name="password" type="password" required minlength="6"></label>
+        <label>Pseudo (à la création du compte) <input name="nickname" type="text" maxlength="40" autocomplete="nickname"></label>
       </div>
       <div class="prono-actions">
         <button type="submit" class="btn primary">Se connecter</button>
         <button type="submit" class="filter-favorites" value="register">Créer un compte</button>
         <button type="button" class="filter-favorites" id="vote-reset">Mot de passe oublié</button>
       </div>
+    </form>
+    <form id="vote-profile" class="prono-panel" hidden>
+      <h3>Choisis ton pseudo</h3>
+      <p>Les membres de tes groupes verront ce pseudo.</p>
+      <label>Pseudo <input name="nickname" type="text" maxlength="40" autocomplete="nickname" required></label>
+      <div class="prono-actions"><button type="submit" class="btn primary">Enregistrer mon pseudo</button></div>
     </form>
     <div id="vote-groups" hidden>
       <div class="vote-submenu" role="group" aria-label="Vues des pronostics">
@@ -1119,6 +1132,11 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
               <select id="vote-group" aria-label="Changer de groupe"></select>
               <span id="vote-group-state" hidden>Votes fermés</span>
             </div>
+            <details id="vote-members" open>
+              <summary>Participants<span id="vote-member-count"></span></summary>
+              <p id="vote-member-status" role="status">Chargement des participants…</p>
+              <ul id="vote-member-list" aria-label="Participants du groupe"></ul>
+            </details>
           </header>
           <div class="group-workspace-body">
             <form id="vote-ballot" hidden>
@@ -1126,7 +1144,6 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
                 <h3>Mon pronostic</h3>
                 <output id="vote-progress" aria-live="polite">0 choix sur 6</output>
               </div>
-              <label>Nom affiché dans le groupe <input name="alias" required maxlength="70"></label>
               <div id="vote-choices" class="prono-choices"></div>
               <div class="prono-actions"><button type="submit" class="btn primary">Vérifier mes choix</button></div>
             </form>
@@ -1632,7 +1649,7 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
 import {initializeApp} from 'https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js';
 import {
   getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
-  sendEmailVerification, sendPasswordResetEmail, signOut
+  sendEmailVerification, sendPasswordResetEmail, signOut, updateProfile
 } from 'https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js';
 import {
   getFirestore, collection, doc, getDocFromServer, getDocsFromServer, onSnapshot,
@@ -1674,6 +1691,7 @@ byId('vote-stats-back').addEventListener('click', () => {
   tab.focus();
 });
 const authForm = byId('vote-auth');
+const profileForm = byId('vote-profile');
 const ballot = byId('vote-ballot');
 const resultsForm = byId('vote-results');
 const resultsPanel = byId('vote-results-panel');
@@ -1782,6 +1800,19 @@ let managementRevision = 0;
 let managedGroupData = null;
 
 const membershipRef = (uid, group) => doc(db, 'users', uid, 'groups', group);
+const rosterRef = group => collection(db, 'groups', group, 'members');
+const rosterMemberRef = (group, uid) => doc(rosterRef(group), uid);
+
+function nicknameOf(account) {
+  const nickname = account?.displayName?.trim();
+  return nickname && nickname.length <= 40 && !/[\r\n]/.test(nickname) ? nickname : '';
+}
+
+function readNickname(form) {
+  const nickname = form.elements.nickname.value.trim();
+  if (!nickname || nickname.length > 40) throw new Error('Choisis un pseudo de 1 à 40 caractères.');
+  return nickname;
+}
 const groupRef = group => doc(db, 'groups', group);
 const privateInviteRef = group => doc(db, 'groups', group, 'private', 'invite');
 const voteRef = (group, uid) => doc(db, 'groups', group, 'votes', uid);
@@ -1909,7 +1940,6 @@ function saveBallot() {
   if (!user || !activeGroup || ownVote !== false) return;
   try {
     localStorage.setItem(ballotKey(), JSON.stringify({
-      alias: ballot.elements.alias.value,
       choices: voteFields.map(field => field.value)
     }));
   } catch {
@@ -1921,7 +1951,6 @@ function restoreBallot() {
   try {
     const saved = JSON.parse(localStorage.getItem(ballotKey()));
     if (saved && Array.isArray(saved.choices)) {
-      ballot.elements.alias.value = saved.alias || '';
       voteFields.forEach((field, index) => { field.value = saved.choices[index] || ''; });
     }
   } catch {
@@ -1936,7 +1965,6 @@ function clearSavedBallot() {
   }
 }
 
-ballot.elements.alias.addEventListener('input', saveBallot);
 byId('vote-choices').addEventListener('change', () => {
   refreshBallot();
   saveBallot();
@@ -2106,6 +2134,20 @@ function selectManagedGroup(id) {
   }, fail));
 }
 
+function renderGroupMembers(members, status = '') {
+  const list = byId('vote-member-list');
+  byId('vote-member-count').textContent = members.length ? ' (' + members.length + ')' : '';
+  byId('vote-member-status').textContent = status;
+  byId('vote-member-status').hidden = !status;
+  list.replaceChildren(...members.map(member => {
+    const item = document.createElement('li');
+    const self = member.id === user?.uid;
+    item.classList.toggle('is-own-member', self);
+    item.textContent = member.data().nickname + (self ? ' (toi)' : '');
+    return item;
+  }));
+}
+
 function resetGroup() {
   groupRevision++;
   stopGroup.forEach(stop => stop());
@@ -2114,6 +2156,8 @@ function resetGroup() {
   stopVotes = null;
   activeGroup = groupData = ownVote = draft = null;
   byId('vote-own-picks').replaceChildren();
+  byId('vote-members').open = true;
+  renderGroupMembers([], 'Chargement des participants…');
   byId('vote-own-details').open = true;
   byId('vote-stats-details').open = false;
   byId('vote-review-status').textContent = '';
@@ -2138,6 +2182,13 @@ function selectGroup(id) {
     groupData = snapshot.data();
     syncView();
   }, fail));
+  stopGroup.push(onSnapshot(rosterRef(id), snapshot => {
+    if (!current()) return;
+    const members = [...snapshot.docs].sort((a, b) => a.data().nickname.localeCompare(b.data().nickname, 'fr'));
+    renderGroupMembers(members, members.length ? '' : 'Aucun participant affiché pour le moment.');
+  }, () => {
+    if (current()) renderGroupMembers([], 'Impossible de charger les participants.');
+  }));
   stopGroup.push(onSnapshot(voteRef(id, uid), {includeMetadataChanges: true}, snapshot => {
     if (!current() || snapshot.metadata.hasPendingWrites || snapshot.metadata.fromCache) return;
     ownVote = snapshot.exists() ? snapshot.data() : false;
@@ -2163,11 +2214,24 @@ managedGroupSelect.addEventListener('change', () => selectManagedGroup(managedGr
 async function loadGroups(preferred, preferredManaged = managedGroupSelect.value) {
   const revision = sessionRevision;
   const uid = user.uid;
+  const nickname = nicknameOf(user);
   const snapshots = await getDocsFromServer(collection(db, 'users', uid, 'groups'));
   const groups = await Promise.all(snapshots.docs.map(item => getDocFromServer(groupRef(item.id))));
   if (revision !== sessionRevision) return;
   const options = groups.filter(group => group.exists())
     .sort((a, b) => a.data().name.localeCompare(b.data().name, 'fr'));
+  // Backfill memberships created before the participant list existed.
+  const synced = await Promise.allSettled(options.map(async group => {
+    const ref = rosterMemberRef(group.id, uid);
+    const entry = await getDocFromServer(ref);
+    if (revision === sessionRevision && entry.data()?.nickname !== nickname) {
+      await setDoc(ref, {nickname});
+    }
+  }));
+  if (revision !== sessionRevision) return;
+  if (synced.some(entry => entry.status === 'rejected')) {
+    message('Ton pseudo n’a pas pu être ajouté à tous tes groupes. Recharge la page pour réessayer.');
+  }
   groupSelect.replaceChildren(...options.map(group => new Option(group.data().name, group.id)));
   groupSelect.value = options.some(group => group.id === preferred) ? preferred : options[0]?.id || '';
   const owned = options.filter(group => group.data().owner === uid);
@@ -2203,7 +2267,10 @@ async function startSession(account) {
   showResultsReview(false);
   authForm.hidden = Boolean(user);
   byId('vote-session').hidden = !user;
-  byId('vote-groups').hidden = !user?.emailVerified;
+  const needsNickname = Boolean(user?.emailVerified && !nicknameOf(user));
+  profileForm.hidden = !needsNickname;
+  profileForm.reset();
+  byId('vote-groups').hidden = !user?.emailVerified || needsNickname;
   resultsPanel.hidden = true;
   resultsPanel.open = false;
   byId('vote-owner').open = false;
@@ -2213,6 +2280,7 @@ async function startSession(account) {
   if (!user) { message('Connecte-toi pour rejoindre ou créer un groupe.'); return; }
   if (!user.emailVerified) { message('Vérifie ton adresse e-mail pour accéder aux groupes.'); return; }
   message('');
+  if (needsNickname) return;
   stopClosure = onSnapshot(closureRef, {includeMetadataChanges:true}, snapshot => {
     if (revision !== sessionRevision || snapshot.metadata.hasPendingWrites) return;
     if (snapshot.metadata.fromCache && !snapshot.exists()) return;
@@ -2242,13 +2310,21 @@ authForm.addEventListener('submit', act(async event => {
   const email = authForm.elements.email.value.trim();
   const password = authForm.elements.password.value;
   if (event.submitter?.value === 'register') {
+    const displayName = readNickname(authForm);
     const credential = await createUserWithEmailAndPassword(auth, email, password);
+    await updateProfile(credential.user, {displayName});
     await sendEmailVerification(credential.user);
+    authForm.elements.nickname.value = '';
     message('E-mail de vérification envoyé.');
   } else {
     await signInWithEmailAndPassword(auth, email, password);
   }
   authForm.elements.password.value = '';
+}));
+profileForm.addEventListener('submit', act(async () => {
+  const account = user;
+  await updateProfile(account, {displayName:readNickname(profileForm)});
+  if (auth.currentUser === account) await startSession(account);
 }));
 byId('vote-check').addEventListener('click', act(async () => {
   await user.reload();
@@ -2282,6 +2358,7 @@ byId('vote-create').addEventListener('submit', act(async event => {
   const batch = writeBatch(db);
   batch.set(group, {name, owner: user.uid, closed: false});
   batch.set(membershipRef(user.uid, group.id), {joined: true});
+  batch.set(rosterMemberRef(group.id, user.uid), {nickname:nicknameOf(user)});
   makeInvite(batch, group.id);
   await batch.commit();
   form.reset();
@@ -2300,10 +2377,13 @@ byId('vote-join').addEventListener('submit', act(async () => {
   });
   const group = invite.data()?.group;
   if (!group) throw new Error('Cette invitation est introuvable.');
-  const ref = membershipRef(user.uid, group);
+  const uid = user.uid;
+  const nickname = nicknameOf(user);
+  const ref = membershipRef(uid, group);
   await runTransaction(db, async transaction => {
     const existing = await transaction.get(ref);
     if (!existing.exists()) transaction.set(ref, {token});
+    transaction.set(rosterMemberRef(group, uid), {nickname});
   });
   inviteInput.value = '';
   const url = new URL(location.href);
@@ -2363,8 +2443,8 @@ function readTop(fields) {
   return top;
 }
 ballot.addEventListener('submit', act(async () => {
-  const name = ballot.elements.alias.value.trim();
-  if (!name) throw new Error('Renseigne ton nom affiché.');
+  const name = nicknameOf(user);
+  if (!name) throw new Error('Choisis ton pseudo avant de voter.');
   const top = readTop(voteFields.slice(0, 5));
   const bonus = Number(voteFields[5].value);
   if (!bonus) throw new Error('Choisis une candidate pour le bonus.');
