@@ -1152,6 +1152,12 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
             <button type="submit" class="btn primary">Créer le groupe</button>
           </form>
         </div>
+        <form id="vote-leave" class="prono-panel" aria-labelledby="vote-leave-title" hidden>
+          <h3 id="vote-leave-title">Quitter un groupe</h3>
+          <label>Groupe à quitter <select id="vote-leave-group" required></select></label>
+          <p class="prono-help">Tu perdras l’accès au groupe. Tes pronostics et résultats déjà validés resteront enregistrés, même si tu le rejoins à nouveau avec un code d’invitation.</p>
+          <button type="submit" class="filter-favorites">Quitter le groupe</button>
+        </form>
         <details id="vote-owner" class="prono-panel" hidden>
           <summary>Gérer le groupe</summary>
           <label>Groupe à gérer <select id="vote-managed-group"></select></label>
@@ -1778,6 +1784,7 @@ const byId = id => document.getElementById(id);
 const voteStatus = byId('vote-status');
 const groupSelect = byId('vote-group');
 const managedGroupSelect = byId('vote-managed-group');
+const leaveGroupSelect = byId('vote-leave-group');
 const voteTabs = Object.entries({
   join: [byId('vote-tab-join'), byId('vote-join-view')],
   group: [byId('vote-tab-group'), byId('vote-group-view')],
@@ -2348,6 +2355,11 @@ async function loadGroups(preferred, preferredManaged = managedGroupSelect.value
   }
   groupSelect.replaceChildren(...options.map(group => new Option(group.data().name, group.id)));
   groupSelect.value = options.some(group => group.id === preferred) ? preferred : options[0]?.id || '';
+  const previousLeave = leaveGroupSelect.value;
+  const joined = options.filter(group => group.data().owner !== uid);
+  leaveGroupSelect.replaceChildren(...joined.map(group => new Option(group.data().name, group.id)));
+  leaveGroupSelect.value = joined.some(group => group.id === previousLeave) ? previousLeave : joined[0]?.id || '';
+  byId('vote-leave').hidden = joined.length === 0;
   const owned = options.filter(group => group.data().owner === uid);
   managedGroupSelect.replaceChildren(new Option('Choisir un groupe', ''),
     ...owned.map(group => new Option(group.data().name, group.id)));
@@ -2391,6 +2403,8 @@ async function startSession(account) {
   resultsPanel.open = false;
   byId('vote-owner').open = false;
   byId('vote-owner').hidden = true;
+  byId('vote-leave').hidden = true;
+  leaveGroupSelect.replaceChildren();
   byId('vote-email').textContent = user?.email || '';
   byId('vote-check').hidden = byId('vote-resend').hidden = !user || user.emailVerified;
   if (!user) { message('Connecte-toi pour rejoindre ou créer un groupe.'); return; }
@@ -2509,6 +2523,52 @@ byId('vote-join').addEventListener('submit', act(async () => {
   await loadGroups(group);
   showVoteView('group');
   message('Groupe rejoint.');
+}));
+byId('vote-leave').addEventListener('submit', act(async () => {
+  const group = leaveGroupSelect.value;
+  if (!group || !user?.emailVerified) return;
+  const name = leaveGroupSelect.selectedOptions[0].textContent;
+  if (!confirm('Quitter le groupe « ' + name + ' » ?\n\nTu perdras l’accès au groupe et disparaîtras de la liste des participants. Tes pronostics et résultats déjà validés resteront enregistrés. Pour revenir, il faudra saisir un code d’invitation valide.')) return;
+  const uid = user.uid;
+  const revision = sessionRevision;
+  const previousGroup = groupSelect.value;
+  // Stop listeners before removing the access that authorizes them.
+  if (activeGroup === group) resetGroup();
+  stopQuizRanking?.();
+  stopQuizRanking = null;
+  quizRankingRevision++;
+  const batch = writeBatch(db);
+  batch.delete(rosterMemberRef(group, uid));
+  batch.delete(membershipRef(uid, group));
+  try {
+    await batch.commit();
+  } catch (error) {
+    if (revision === sessionRevision) {
+      selectGroup(previousGroup);
+      updateQuizRanking();
+    }
+    if (error.code === 'permission-denied') throw new Error('Départ refusé. Vérifie que les nouvelles règles Firestore sont publiées et que tu n’es pas le créateur du groupe.');
+    throw error;
+  }
+  if (revision !== sessionRevision) return;
+  // Validated votes and the single quiz attempt are deliberately kept.
+  try {
+    await loadGroups(previousGroup === group ? '' : previousGroup);
+  } catch {
+    // Do not keep a departed group visible if refreshing another group fails.
+    if (revision !== sessionRevision) return;
+    updateQuizGroups([]);
+    groupSelect.replaceChildren();
+    leaveGroupSelect.replaceChildren();
+    byId('vote-leave').hidden = true;
+    resetGroup();
+    showVoteView('join');
+    message('Tu as quitté le groupe « ' + name + ' ». Recharge la page pour retrouver tes autres groupes.');
+    return;
+  }
+  if (revision !== sessionRevision) return;
+  showVoteView('join');
+  message('Tu as quitté le groupe « ' + name + ' ».');
 }));
 byId('vote-copy').addEventListener('click', act(async () => {
   const field = byId('vote-invite');
