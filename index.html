@@ -616,6 +616,9 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
   #quiz-progress {width:100%;height:8px;accent-color:var(--gold)}
   #quiz-progress-label,#quiz-number,#quiz-category,#quiz-save,#quiz-feedback {font-size:.85rem;color:var(--muted)}
   #quiz-feedback:empty {display:none}
+  .quiz-duration {padding:12px 14px;border:1px solid #806847;border-radius:11px;background:#392939}
+  #quiz-hint:empty {display:none}
+  #quiz-hint.is-multiple {padding:14px 16px;border:2px solid #ffd289;border-radius:12px;background:#483346;color:#fff1cf;font-weight:800;font-size:1rem;line-height:1.5}
   #quiz-prompt {line-height:1.45;font-size:clamp(1.1rem,3vw,1.45rem);letter-spacing:0;margin:18px 0 10px}
   #quiz-answer {display:grid;gap:9px}
   #quiz-answer .quiz-option {display:flex;align-items:center;gap:10px;min-height:48px;padding:12px;border:1px solid var(--line);border-radius:12px;font-weight:500;cursor:pointer;background:#211832}
@@ -1320,6 +1323,7 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
     <div id="quiz-intro" class="quiz-panel" hidden>
       <h3>À toi de jouer</h3>
       <p>Une seule tentative enregistrée par compte, commune à tous tes groupes. Tu peux revenir sur tes réponses et reprendre plus tard sur cet appareil jusqu’à la validation finale.</p>
+      <p class="quiz-duration"><strong>Prévois environ 1 heure.</strong> Tu peux faire une pause et reprendre sur cet appareil avant la validation finale.</p>
       <p>Mode sans chronomètre. La note automatique porte sur 78 points, ramenés sur 20. Les 10 bonus départagent les ex æquo. Les deux exercices de dessin sont proposés sur papier et restent hors classement.</p>
       <button type="button" id="quiz-start" class="btn primary">Commencer le quiz</button>
     </div>
@@ -2781,9 +2785,12 @@ function renderQuizQuestion() {
   byId('quiz-progress').max = quizQuestions.length;
   byId('quiz-progress-label').textContent = byId('quiz-progress').value + ' réponses sur ' + quizQuestions.length;
   byId('quiz-prompt').textContent = question.number + '. ' + question.prompt;
-  byId('quiz-hint').textContent = question.kind === 'multiple' ? 'Plusieurs réponses possibles.'
+  const hint = byId('quiz-hint');
+  hint.classList.toggle('is-multiple', question.kind === 'multiple');
+  hint.textContent = question.kind === 'multiple'
+    ? '☑ PLUSIEURS RÉPONSES À COCHER — Sélectionne toutes les bonnes réponses. Le point est accordé si tu coches toutes les bonnes réponses, sans réponse incorrecte.'
     : question.kind === 'match' ? 'Choisis une actrice pour chaque silhouette, de gauche à droite.'
-    : question.points === 0 ? 'Question bonus, comptée séparément.' : '';
+    : question.points === 0 ? 'Bonus · Une seule réponse à sélectionner. Il sert à départager les ex æquo.' : '';
   const picture = byId('quiz-picture');
   picture.hidden = !question.image;
   if (question.image) picture.src = question.image;
