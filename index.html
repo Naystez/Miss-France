@@ -492,6 +492,11 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
   .vote-submenu {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:14px 0}
   .vote-submenu button {min-width:0;min-height:48px;white-space:normal;line-height:1.2}
   .vote-submenu [aria-pressed="true"] {color:#ffe1a9;border-color:#bb83ac;background:#563151}
+  #vote-leave {margin:0 0 16px;border:1px solid #bb8cbd;background:linear-gradient(125deg,#432848,#251a34)}
+  #vote-leave h3 {margin:0 0 10px;font-size:1.2rem}
+  #vote-leave-submit {border-color:#df9eac;color:#ffe1e8;font-weight:750}
+  #vote-leave button:disabled {opacity:.55;cursor:not-allowed}
+  #vote-leave-status {min-height:1.6em;overflow-wrap:anywhere}
   .group-entry-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
   .group-entry-card {display:grid;align-content:start;gap:12px;min-width:0}
   .group-entry-card h3 {margin:0;font-size:1.1rem}
@@ -1134,6 +1139,16 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
         <button type="button" class="filter-favorites" id="vote-tab-stats" aria-controls="vote-stats-view" aria-pressed="false">Statistiques</button>
       </div>
       <div id="vote-join-view">
+        <form id="vote-leave" class="prono-panel" aria-labelledby="vote-leave-title">
+          <h3 id="vote-leave-title">Mes groupes</h3>
+          <label>Choisir un groupe <select id="vote-leave-group" required disabled><option value="">Chargement des groupes…</option></select></label>
+          <p id="vote-leave-status" class="prono-help" role="status">Chargement des groupes…</p>
+          <div class="prono-actions">
+            <button id="vote-leave-submit" type="submit" class="filter-favorites" disabled>Quitter le groupe</button>
+            <button id="vote-reload-groups" type="button" class="filter-favorites">Actualiser mes groupes</button>
+          </div>
+          <p class="prono-help">Les pronostics et résultats déjà validés restent enregistrés. Pour revenir dans le groupe, il faudra saisir un code d’invitation valide.</p>
+        </form>
         <div class="group-entry-grid">
           <form id="vote-join" class="prono-panel group-entry-card" aria-labelledby="vote-join-title">
             <div class="group-entry-heading">
@@ -1152,12 +1167,6 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
             <button type="submit" class="btn primary">Créer le groupe</button>
           </form>
         </div>
-        <form id="vote-leave" class="prono-panel" aria-labelledby="vote-leave-title" hidden>
-          <h3 id="vote-leave-title">Quitter un groupe</h3>
-          <label>Groupe à quitter <select id="vote-leave-group" required></select></label>
-          <p class="prono-help">Tu perdras l’accès au groupe. Tes pronostics et résultats déjà validés resteront enregistrés, même si tu le rejoins à nouveau avec un code d’invitation.</p>
-          <button type="submit" class="filter-favorites">Quitter le groupe</button>
-        </form>
         <details id="vote-owner" class="prono-panel" hidden>
           <summary>Gérer le groupe</summary>
           <label>Groupe à gérer <select id="vote-managed-group"></select></label>
@@ -1807,6 +1816,8 @@ const voteStatus = byId('vote-status');
 const groupSelect = byId('vote-group');
 const managedGroupSelect = byId('vote-managed-group');
 const leaveGroupSelect = byId('vote-leave-group');
+let leaveGroups = new Map();
+let leaveGroupsState = 'loading';
 const voteTabs = Object.entries({
   join: [byId('vote-tab-join'), byId('vote-join-view')],
   group: [byId('vote-tab-group'), byId('vote-group-view')],
@@ -1990,6 +2001,7 @@ function act(handler) {
     } finally {
       busy = false;
       if (control) control.disabled = false;
+      syncLeaveControl();
     }
   };
 }
@@ -2354,12 +2366,50 @@ function selectGroup(id) {
 groupSelect.addEventListener('change', () => selectGroup(groupSelect.value));
 managedGroupSelect.addEventListener('change', () => selectManagedGroup(managedGroupSelect.value));
 
+function syncLeaveControl() {
+  const group = leaveGroups.get(leaveGroupSelect.value);
+  const owner = group?.owner === user?.uid;
+  byId('vote-leave-submit').disabled = busy || !user?.emailVerified || !group || owner;
+  byId('vote-leave-status').textContent = leaveGroupsState === 'loading'
+    ? 'Chargement des groupes…'
+    : leaveGroupsState === 'error'
+      ? 'Impossible de charger les groupes. Appuie sur « Actualiser mes groupes » pour réessayer.'
+      : !group
+        ? 'Tu n’as encore rejoint aucun groupe.'
+        : owner
+          ? 'Tu es le créateur de ce groupe : tu ne peux pas le quitter.'
+          : 'Tu es membre de ce groupe. Tu peux le quitter avec le bouton ci-dessous.';
+}
+function setLeaveGroups(options, state = 'ready') {
+  const previous = leaveGroupSelect.value;
+  leaveGroupsState = state;
+  leaveGroups = new Map(options.map(group => [group.id, {name:group.data().name, owner:group.data().owner}]));
+  leaveGroupSelect.replaceChildren(...options.map(group => new Option(group.data().name, group.id)));
+  if (!options.length) leaveGroupSelect.add(new Option(state === 'loading' ? 'Chargement…' : state === 'error' ? 'Liste indisponible' : 'Aucun groupe', ''));
+  leaveGroupSelect.value = leaveGroups.has(previous) ? previous
+    : options.find(group => group.data().owner !== user?.uid)?.id || options[0]?.id || '';
+  leaveGroupSelect.disabled = options.length === 0;
+  syncLeaveControl();
+}
+leaveGroupSelect.addEventListener('change', syncLeaveControl);
+byId('vote-reload-groups').addEventListener('click', act(async () => {
+  if (!user?.emailVerified) return;
+  await loadGroups(groupSelect.value);
+  showVoteView('join');
+}));
+
 async function loadGroups(preferred, preferredManaged = managedGroupSelect.value) {
   const revision = sessionRevision;
   const uid = user.uid;
   const nickname = nicknameOf(user);
-  const snapshots = await getDocsFromServer(collection(db, 'users', uid, 'groups'));
-  const groups = await Promise.all(snapshots.docs.map(item => getDocFromServer(groupRef(item.id))));
+  let groups;
+  try {
+    const snapshots = await getDocsFromServer(collection(db, 'users', uid, 'groups'));
+    groups = await Promise.all(snapshots.docs.map(item => getDocFromServer(groupRef(item.id))));
+  } catch (error) {
+    if (revision === sessionRevision) setLeaveGroups([], 'error');
+    throw error;
+  }
   if (revision !== sessionRevision) return;
   const options = groups.filter(group => group.exists())
     .sort((a, b) => a.data().name.localeCompare(b.data().name, 'fr'));
@@ -2377,11 +2427,7 @@ async function loadGroups(preferred, preferredManaged = managedGroupSelect.value
   }
   groupSelect.replaceChildren(...options.map(group => new Option(group.data().name, group.id)));
   groupSelect.value = options.some(group => group.id === preferred) ? preferred : options[0]?.id || '';
-  const previousLeave = leaveGroupSelect.value;
-  const joined = options.filter(group => group.data().owner !== uid);
-  leaveGroupSelect.replaceChildren(...joined.map(group => new Option(group.data().name, group.id)));
-  leaveGroupSelect.value = joined.some(group => group.id === previousLeave) ? previousLeave : joined[0]?.id || '';
-  byId('vote-leave').hidden = joined.length === 0;
+  setLeaveGroups(options);
   const owned = options.filter(group => group.data().owner === uid);
   managedGroupSelect.replaceChildren(new Option('Choisir un groupe', ''),
     ...owned.map(group => new Option(group.data().name, group.id)));
@@ -2425,8 +2471,7 @@ async function startSession(account) {
   resultsPanel.open = false;
   byId('vote-owner').open = false;
   byId('vote-owner').hidden = true;
-  byId('vote-leave').hidden = true;
-  leaveGroupSelect.replaceChildren();
+  setLeaveGroups([], 'loading');
   byId('vote-email').textContent = user?.email || '';
   byId('vote-check').hidden = byId('vote-resend').hidden = !user || user.emailVerified;
   if (!user) { message('Connecte-toi pour rejoindre ou créer un groupe.'); return; }
@@ -2548,7 +2593,8 @@ byId('vote-join').addEventListener('submit', act(async () => {
 }));
 byId('vote-leave').addEventListener('submit', act(async () => {
   const group = leaveGroupSelect.value;
-  if (!group || !user?.emailVerified) return;
+  if (!group || !user?.emailVerified || !leaveGroups.has(group)) return;
+  if (leaveGroups.get(group).owner === user.uid) throw new Error('Le créateur ne peut pas quitter son propre groupe.');
   const name = leaveGroupSelect.selectedOptions[0].textContent;
   if (!confirm('Quitter le groupe « ' + name + ' » ?\n\nTu perdras l’accès au groupe et disparaîtras de la liste des participants. Tes pronostics et résultats déjà validés resteront enregistrés. Pour revenir, il faudra saisir un code d’invitation valide.')) return;
   const uid = user.uid;
@@ -2581,8 +2627,7 @@ byId('vote-leave').addEventListener('submit', act(async () => {
     if (revision !== sessionRevision) return;
     updateQuizGroups([]);
     groupSelect.replaceChildren();
-    leaveGroupSelect.replaceChildren();
-    byId('vote-leave').hidden = true;
+    setLeaveGroups([], 'error');
     resetGroup();
     showVoteView('join');
     message('Tu as quitté le groupe « ' + name + ' ». Recharge la page pour retrouver tes autres groupes.');
