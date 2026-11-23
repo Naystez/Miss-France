@@ -1384,7 +1384,7 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
       <h3>À toi de jouer</h3>
       <p>Une seule tentative enregistrée par compte, commune à tous tes groupes. Tu peux revenir sur tes réponses et reprendre plus tard sur cet appareil jusqu’à la validation finale.</p>
       <p class="quiz-duration"><strong>Prévois environ 1 heure.</strong> Tu peux faire une pause et reprendre sur cet appareil avant la validation finale.</p>
-      <p>Mode sans chronomètre. La note automatique porte sur 78 points, ramenés sur 20. Les 10 bonus départagent les ex æquo. Les deux exercices de dessin sont proposés sur papier et restent hors classement.</p>
+      <p>Mode sans chronomètre. Les questions valent 78 points, auxquels s’ajoutent jusqu’à 2 points pour les 10 bonus (0,2 point par bonne réponse). Le total sur 80 est divisé par 4 pour obtenir ta note sur 20. Les deux exercices de dessin sont proposés sur papier et restent hors classement.</p>
       <button type="button" id="quiz-start" class="btn primary">Commencer le quiz</button>
     </div>
     <div id="quiz-play" class="quiz-panel" hidden>
@@ -1441,7 +1441,7 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
     <section id="quiz-ranking" class="quiz-panel" hidden aria-labelledby="quiz-ranking-title">
       <h3 id="quiz-ranking-title">Classement du groupe</h3>
       <label>Groupe <select id="quiz-group"></select></label>
-      <p>Classement par note, puis par bonus. Les joueurs à égalité partagent la même place.</p>
+      <p>Classement par note sur 20, bonus inclus. Les joueurs à égalité partagent la même place.</p>
       <p id="quiz-ranking-status" role="status"></p>
       <div class="quiz-table-scroll"><table><thead><tr><th scope="col">Rang</th><th scope="col">Joueur</th><th scope="col">Note</th><th scope="col">Bonus</th></tr></thead><tbody id="quiz-ranking-rows"></tbody></table></div>
     </section>
@@ -1456,12 +1456,10 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
         </div>
         <p id="quiz-miss-position" class="quiz-miss-position" role="status">Valide ton quiz pour voir ton résultat à côté des notes publiées et le comparer à la moyenne.</p>
         <button type="button" id="quiz-miss-open-self" class="filter-favorites">Faire le quiz</button>
-        <p class="quiz-comparison-note">Comparaison indicative : ton quiz est noté sur 78 points, sans les deux exercices de dessin ; les Miss ont passé l’épreuve complète. Les bonus ne sont pas comparés.</p>
+        <p class="quiz-comparison-note">Comparaison indicative : ton quiz compte 78 points de questions et 2 points de bonus, ramenés sur 20. Les deux exercices de dessin sont hors classement dans l’application ; les Miss ont passé l’épreuve complète.</p>
         <div class="quiz-table-scroll">
           <table id="quiz-miss-table"><caption class="sr-only">Notes publiées des candidates et comparaison avec ton résultat</caption><thead><tr><th scope="col">Candidate ou joueur</th><th scope="col">Note</th></tr></thead><tbody id="quiz-miss-rows"></tbody></table>
         </div>
-        <p class="quiz-comparison-note">Le rang de ton résultat dans cette liste concerne uniquement les sept Miss ci-dessus et toi, jamais l’ensemble des 31 candidates.</p>
-        <p class="quiz-comparison-note">Podium publié le 22 novembre 2026 · <a href="https://www.tf1info.fr/culture/miss-france-2027-voici-les-candidates-qui-ont-obtenu-les-meilleures-notes-au-test-de-culture-generale-quiz-2477445.html" target="_blank" rel="noopener noreferrer">TF1info ↗</a></p>
       </section>
     </div>
   </section>
@@ -2950,9 +2948,12 @@ function evaluateQuiz(answers) {
     }
     return {question, supplied, fraction, points:fraction * question.points};
   });
-  const points = details.reduce((sum, row) => sum + row.points, 0);
+  const basePoints = details.reduce((sum, row) => sum + row.points, 0);
   const bonus = details.filter(row => row.question.points === 0).reduce((sum, row) => sum + row.fraction, 0);
-  return {points, bonus, note:points * 20 / 78, details};
+  const bonusPoints = bonus / 5;
+  // Normalize tiny floating-point differences so equal totals share a rank.
+  const points = Math.round((basePoints + bonusPoints) * 1e10) / 1e10;
+  return {points, basePoints, bonus, bonusPoints, note:points / 4, details};
 }
 
 function quizKey() {
@@ -3071,7 +3072,7 @@ function renderQuizQuestion() {
   hint.textContent = question.kind === 'multiple'
     ? '☑ PLUSIEURS RÉPONSES À COCHER — Sélectionne toutes les bonnes réponses. Le point est accordé si tu coches toutes les bonnes réponses, sans réponse incorrecte.'
     : question.kind === 'match' ? 'Choisis une actrice pour chaque silhouette, de gauche à droite.'
-    : question.points === 0 ? 'Bonus · Une seule réponse à sélectionner. Il sert à départager les ex æquo.' : '';
+    : question.points === 0 ? 'Bonus · Une seule réponse à sélectionner. Une bonne réponse rapporte 0,2 point sur 80 ; les 10 bonus valent 2 points au total.' : '';
   const picture = byId('quiz-picture');
   picture.hidden = !question.image;
   if (question.image) picture.src = question.image;
@@ -3199,7 +3200,7 @@ function readableQuizAnswer(question, answer) {
 function renderQuizResult() {
   const score = evaluateQuiz(quizRecord.answers);
   byId('quiz-note').textContent = formatQuiz(score.note) + ' / 20';
-  byId('quiz-score').textContent = formatQuiz(score.points) + ' / 78 points · Bonus ' + formatQuiz(score.bonus) + ' / 10';
+  byId('quiz-score').textContent = formatQuiz(score.points) + ' / 80 points · Bonus ' + formatQuiz(score.bonusPoints) + ' / 2 (' + formatQuiz(score.bonus) + ' bonnes réponses sur 10)';
   const categories = sectionNames.map(section => {
     const rows = score.details.filter(row => row.question.section === section && row.question.points);
     return section + ' ' + formatQuiz(rows.reduce((sum, row) => sum + row.points, 0)) + ' / ' + rows.length;
@@ -3333,13 +3334,13 @@ function updateQuizRanking() {
   stopQuizRanking = onSnapshot(collection(db, 'groups', group, 'quiz2027'), {includeMetadataChanges:true}, snapshot => {
     if (revision !== quizRankingRevision || snapshot.metadata.fromCache || snapshot.metadata.hasPendingWrites) return;
     const scores = snapshot.docs.map(item => ({id:item.id, ...item.data(), score:evaluateQuiz(item.data().answers)}))
-      .sort((a, b) => b.score.points - a.score.points || b.score.bonus - a.score.bonus || a.name.localeCompare(b.name, 'fr'));
+      .sort((a, b) => b.score.points - a.score.points || a.name.localeCompare(b.name, 'fr'));
     rows.replaceChildren();
     let rank = 0;
     scores.forEach((result, index) => {
-      if (!index || result.score.points !== scores[index - 1].score.points || result.score.bonus !== scores[index - 1].score.bonus) rank = index + 1;
+      if (!index || result.score.points !== scores[index - 1].score.points) rank = index + 1;
       const row = document.createElement('tr');
-      for (const text of [rank, result.name + (result.id === user.uid ? ' (toi)' : ''), formatQuiz(result.score.note) + ' / 20', formatQuiz(result.score.bonus) + ' / 10']) {
+      for (const text of [rank, result.name + (result.id === user.uid ? ' (toi)' : ''), formatQuiz(result.score.note) + ' / 20', formatQuiz(result.score.bonusPoints) + ' / 2']) {
         const cell = row.insertCell();
         cell.textContent = text;
       }
