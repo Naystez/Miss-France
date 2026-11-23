@@ -1384,7 +1384,7 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
       <h3>À toi de jouer</h3>
       <p>Une seule tentative enregistrée par compte, commune à tous tes groupes. Tu peux revenir sur tes réponses et reprendre plus tard sur cet appareil jusqu’à la validation finale.</p>
       <p class="quiz-duration"><strong>Prévois environ 1 heure.</strong> Tu peux faire une pause et reprendre sur cet appareil avant la validation finale.</p>
-      <p>Mode sans chronomètre. Les questions valent 78 points, auxquels s’ajoutent jusqu’à 2 points pour les 10 bonus (0,2 point par bonne réponse). Le total sur 80 est divisé par 4 pour obtenir ta note sur 20. Les deux exercices de dessin sont proposés sur papier et restent hors classement.</p>
+      <p>Mode sans chronomètre. Les questions valent 78 points, auxquels s’ajoutent jusqu’à 4 points pour les 10 bonus (0,4 point par bonne réponse). Le total est divisé par 4 sur un barème de 80 : avec les bonus, tu peux atteindre 82/80, soit 20,5/20. Les deux exercices de dessin sont proposés sur papier et restent hors classement.</p>
       <button type="button" id="quiz-start" class="btn primary">Commencer le quiz</button>
     </div>
     <div id="quiz-play" class="quiz-panel" hidden>
@@ -1443,7 +1443,7 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
       <label>Groupe <select id="quiz-group"></select></label>
       <p>Classement par note sur 20, bonus inclus. Les joueurs à égalité partagent la même place.</p>
       <p id="quiz-ranking-status" role="status"></p>
-      <div class="quiz-table-scroll"><table><thead><tr><th scope="col">Rang</th><th scope="col">Joueur</th><th scope="col">Note</th><th scope="col">Bonus</th></tr></thead><tbody id="quiz-ranking-rows"></tbody></table></div>
+      <div class="quiz-table-scroll"><table><thead><tr><th scope="col">Rang</th><th scope="col">Joueur</th><th scope="col">Note</th></tr></thead><tbody id="quiz-ranking-rows"></tbody></table></div>
     </section>
     </div>
     <div id="quiz-view-miss" hidden>
@@ -1456,7 +1456,7 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
         </div>
         <p id="quiz-miss-position" class="quiz-miss-position" role="status">Valide ton quiz pour voir ton résultat à côté des notes publiées et le comparer à la moyenne.</p>
         <button type="button" id="quiz-miss-open-self" class="filter-favorites">Faire le quiz</button>
-        <p class="quiz-comparison-note">Comparaison indicative : ton quiz compte 78 points de questions et 2 points de bonus, ramenés sur 20. Les deux exercices de dessin sont hors classement dans l’application ; les Miss ont passé l’épreuve complète.</p>
+        <p class="quiz-comparison-note">Comparaison indicative : ton quiz compte 78 points de questions et 4 points de bonus. La note est calculée sur un barème de 80 et peut atteindre 20,5/20. Les deux exercices de dessin sont hors classement dans l’application ; les Miss ont passé l’épreuve complète.</p>
         <div class="quiz-table-scroll">
           <table id="quiz-miss-table"><caption class="sr-only">Notes publiées des candidates et comparaison avec ton résultat</caption><thead><tr><th scope="col">Candidate ou joueur</th><th scope="col">Note</th></tr></thead><tbody id="quiz-miss-rows"></tbody></table>
         </div>
@@ -2955,7 +2955,7 @@ function evaluateQuiz(answers) {
   });
   const basePoints = details.reduce((sum, row) => sum + row.points, 0);
   const bonus = details.filter(row => row.question.points === 0).reduce((sum, row) => sum + row.fraction, 0);
-  const bonusPoints = bonus / 5;
+  const bonusPoints = bonus * 0.4;
   // Normalize tiny floating-point differences so equal totals share a rank.
   const points = Math.round((basePoints + bonusPoints) * 1e10) / 1e10;
   return {points, basePoints, bonus, bonusPoints, note:points / 4, details};
@@ -3077,7 +3077,7 @@ function renderQuizQuestion() {
   hint.textContent = question.kind === 'multiple'
     ? '☑ PLUSIEURS RÉPONSES À COCHER — Sélectionne toutes les bonnes réponses. Le point est accordé si tu coches toutes les bonnes réponses, sans réponse incorrecte.'
     : question.kind === 'match' ? 'Choisis une actrice pour chaque silhouette, de gauche à droite.'
-    : question.points === 0 ? 'Bonus · Une seule réponse à sélectionner. Une bonne réponse rapporte 0,2 point sur 80 ; les 10 bonus valent 2 points au total.' : '';
+    : question.points === 0 ? 'Bonus · Une seule réponse à sélectionner. Une bonne réponse rapporte 0,4 point sur 80 ; les 10 bonus valent 4 points au total.' : '';
   const picture = byId('quiz-picture');
   picture.hidden = !question.image;
   if (question.image) picture.src = question.image;
@@ -3205,7 +3205,7 @@ function readableQuizAnswer(question, answer) {
 function renderQuizResult() {
   const score = evaluateQuiz(quizRecord.answers);
   byId('quiz-note').textContent = formatQuiz(score.note) + ' / 20';
-  byId('quiz-score').textContent = 'Questions : ' + formatQuiz(score.basePoints) + ' / 78 + Bonus : ' + formatQuiz(score.bonusPoints) + ' / 2';
+  byId('quiz-score').textContent = 'Questions : ' + formatQuiz(score.basePoints) + ' / 78 + Bonus : ' + formatQuiz(score.bonusPoints) + ' / 4';
   const categories = sectionNames.map(section => {
     const rows = score.details.filter(row => row.question.section === section && row.question.points);
     return section + ' ' + formatQuiz(rows.reduce((sum, row) => sum + row.points, 0)) + ' / ' + rows.length;
@@ -3345,7 +3345,7 @@ function updateQuizRanking() {
     scores.forEach((result, index) => {
       if (!index || result.score.points !== scores[index - 1].score.points) rank = index + 1;
       const row = document.createElement('tr');
-      for (const text of [rank, result.name + (result.id === user.uid ? ' (toi)' : ''), formatQuiz(result.score.note) + ' / 20', formatQuiz(result.score.bonusPoints) + ' / 2']) {
+      for (const text of [rank, result.name + (result.id === user.uid ? ' (toi)' : ''), formatQuiz(result.score.note) + ' / 20']) {
         const cell = row.insertCell();
         cell.textContent = text;
       }
