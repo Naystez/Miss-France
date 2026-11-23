@@ -2941,6 +2941,11 @@ function evaluateQuiz(answers) {
     const accepted = [...question.answer, ...(question.legacyAnswers || [])];
     let fraction = Number(accepted.some(answer =>
       normalizeQuizAnswer(answer) === normalizeQuizAnswer(supplied)));
+    if (question.id === 'l5') {
+      // Accept both amounts anywhere in the wording, in either order.
+      const amounts = supplied.match(/\d+/g) || [];
+      fraction = Number(amounts.includes('10') && amounts.includes('20'));
+    }
     if (question.kind === 'match') {
       const parts = supplied.split('|');
       const expected = question.answer[0].split('|');
