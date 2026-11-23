@@ -3200,7 +3200,7 @@ function readableQuizAnswer(question, answer) {
 function renderQuizResult() {
   const score = evaluateQuiz(quizRecord.answers);
   byId('quiz-note').textContent = formatQuiz(score.note) + ' / 20';
-  byId('quiz-score').textContent = formatQuiz(score.points) + ' / 80 points · Bonus ' + formatQuiz(score.bonusPoints) + ' / 2 (' + formatQuiz(score.bonus) + ' bonnes réponses sur 10)';
+  byId('quiz-score').textContent = 'Questions : ' + formatQuiz(score.basePoints) + ' / 78 + Bonus : ' + formatQuiz(score.bonusPoints) + ' / 2';
   const categories = sectionNames.map(section => {
     const rows = score.details.filter(row => row.question.section === section && row.question.points);
     return section + ' ' + formatQuiz(rows.reduce((sum, row) => sum + row.points, 0)) + ' / ' + rows.length;
