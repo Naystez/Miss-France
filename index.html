@@ -683,6 +683,29 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
     .quiz-subnav {gap:5px}
   }
 
+
+  #quiz-ranking th:first-child {width:12%}
+  #quiz-ranking th:last-child {width:26%}
+  #quiz-ranking td:last-child {white-space:normal}
+  #quiz-ranking .quiz-answers-button {white-space:normal;font-size:.78rem;line-height:1.3;padding:8px;min-height:44px;width:100%;border-color:#a184af}
+  #quiz-ranking .quiz-answers-button[aria-expanded="true"] {background:#52334f;border-color:#e0b580;color:#ffe4b3}
+  #quiz-ranking .quiz-participant-detail-row > td {padding:0;white-space:normal;background:#20162f}
+  .quiz-participant-scroll {max-height:65vh;overflow-y:auto;padding:14px clamp(10px,3vw,22px);scrollbar-width:thin;scrollbar-color:#94719e #20162f}
+  .quiz-participant-answers h4 {margin:0 0 5px;font-size:1.05rem}
+  .quiz-participant-score {margin:0 0 14px;color:#ffe0a6;font-size:.85rem}
+  .quiz-participant-answers h5 {margin:20px 0 8px;padding-bottom:7px;border-bottom:1px solid #a184af;color:#e7c6ec;font-size:.95rem}
+  .quiz-answer-detail {padding:12px 0;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
+  .quiz-answer-detail h6 {margin:0 0 5px;font-size:.9rem;line-height:1.5}
+  .quiz-answer-detail small {display:block;color:var(--muted);margin-bottom:7px}
+  .quiz-answer-detail p {margin:5px 0;font-size:.85rem;line-height:1.5}
+  .quiz-answer-detail.quiz-correct h6 {color:#a9e7c6}
+  .quiz-answer-detail.quiz-incorrect h6 {color:#ffc0cf}
+  .quiz-answer-detail img {display:block;max-width:100%;max-height:300px;object-fit:contain;margin:10px 0;border-radius:7px;background:white}
+  @media(max-width:450px) {
+    #quiz-ranking th,#quiz-ranking td {padding:9px 4px;font-size:.78rem}
+    #quiz-ranking .quiz-answers-button {font-size:.72rem;padding:7px 5px}
+  }
+
 </style>
 </head>
 <body>
@@ -1443,7 +1466,7 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
       <label>Groupe <select id="quiz-group"></select></label>
       <p>Classement par note sur 20, bonus inclus. Les joueurs à égalité partagent la même place.</p>
       <p id="quiz-ranking-status" role="status"></p>
-      <div class="quiz-table-scroll"><table><thead><tr><th scope="col">Rang</th><th scope="col">Joueur</th><th scope="col">Note</th></tr></thead><tbody id="quiz-ranking-rows"></tbody></table></div>
+      <div class="quiz-table-scroll"><table><thead><tr><th scope="col">Rang</th><th scope="col">Joueur</th><th scope="col">Note</th><th scope="col">Réponses</th></tr></thead><tbody id="quiz-ranking-rows"></tbody></table></div>
     </section>
     </div>
     <div id="quiz-view-miss" hidden>
@@ -3322,6 +3345,52 @@ function updateQuizGroups(options) {
   updateQuizRanking();
 }
 
+function renderParticipantQuizAnswers(result) {
+  const panel = document.createElement('section');
+  panel.className = 'quiz-participant-answers';
+  panel.setAttribute('aria-label', 'Réponses de ' + result.name);
+  const title = document.createElement('h4');
+  title.textContent = 'Les réponses de ' + result.name;
+  const score = document.createElement('p');
+  score.className = 'quiz-participant-score';
+  score.textContent = formatQuiz(result.score.note) + ' / 20 · Questions : ' +
+    formatQuiz(result.score.basePoints) + ' / 78 + Bonus : ' + formatQuiz(result.score.bonusPoints) + ' / 4';
+  panel.append(title, score);
+  let previousSection = '';
+  for (const {question, supplied, fraction, points} of result.score.details) {
+    if (question.section !== previousSection) {
+      const section = document.createElement('h5');
+      section.textContent = question.section;
+      panel.append(section);
+      previousSection = question.section;
+    }
+    const item = document.createElement('article');
+    item.className = 'quiz-answer-detail ' + (fraction === 1 ? 'quiz-correct' : 'quiz-incorrect');
+    const heading = document.createElement('h6');
+    const awarded = question.points === 0 ? fraction * 0.4 : points;
+    const max = question.points === 0 ? 0.4 : question.points;
+    heading.textContent = (fraction === 1 ? '✓ ' : fraction > 0 ? '◐ ' : '✗ ') + question.number + '. ' + question.prompt;
+    const mark = document.createElement('small');
+    mark.textContent = formatQuiz(awarded) + ' / ' + formatQuiz(max) + ' pt';
+    const own = document.createElement('p');
+    own.textContent = 'Réponse donnée : ' + readableQuizAnswer(question, supplied);
+    const correct = document.createElement('p');
+    correct.textContent = 'Bonne réponse : ' + (question.display || readableQuizAnswer(question, question.answer[0]));
+    item.append(heading, mark);
+    if (question.image) {
+      const image = document.createElement('img');
+      image.src = question.image;
+      image.alt = 'Illustration de la question ' + question.number;
+      image.loading = 'lazy';
+      image.decoding = 'async';
+      item.append(image);
+    }
+    item.append(own, correct);
+    panel.append(item);
+  }
+  return panel;
+}
+
 function updateQuizRanking() {
   stopQuizRanking?.();
   stopQuizRanking = null;
@@ -3338,6 +3407,8 @@ function updateQuizRanking() {
   status.textContent = 'Chargement du classement…';
   stopQuizRanking = onSnapshot(collection(db, 'groups', group, 'quiz2027'), {includeMetadataChanges:true}, snapshot => {
     if (revision !== quizRankingRevision || snapshot.metadata.fromCache || snapshot.metadata.hasPendingWrites) return;
+    const expanded = new Map([...rows.querySelectorAll('tr[data-quiz-detail]')]
+      .filter(row => !row.hidden).map(row => [row.dataset.quizDetail, row.querySelector('.quiz-participant-scroll')?.scrollTop || 0]));
     const scores = snapshot.docs.map(item => ({id:item.id, ...item.data(), score:evaluateQuiz(item.data().answers)}))
       .sort((a, b) => b.score.points - a.score.points || a.name.localeCompare(b.name, 'fr'));
     rows.replaceChildren();
@@ -3349,7 +3420,38 @@ function updateQuizRanking() {
         const cell = row.insertCell();
         cell.textContent = text;
       }
-      rows.append(row);
+      const action = row.insertCell();
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'filter-favorites quiz-answers-button';
+      button.textContent = 'Voir les réponses';
+      button.setAttribute('aria-label', 'Voir les réponses de ' + result.name);
+      const detailRow = document.createElement('tr');
+      detailRow.dataset.quizDetail = result.id;
+      detailRow.className = 'quiz-participant-detail-row';
+      detailRow.hidden = true;
+      const detailCell = detailRow.insertCell();
+      detailCell.colSpan = 4;
+      const content = document.createElement('div');
+      content.className = 'quiz-participant-scroll';
+      content.tabIndex = 0;
+      content.id = 'quiz-participant-' + revision + '-' + index;
+      content.setAttribute('role', 'region');
+      content.setAttribute('aria-label', 'Détail des réponses de ' + result.name);
+      button.setAttribute('aria-controls', content.id);
+      function toggleAnswers(open) {
+        if (open && !content.childElementCount) content.append(renderParticipantQuizAnswers(result));
+        detailRow.hidden = !open;
+        button.textContent = open ? 'Masquer' : 'Voir les réponses';
+        button.setAttribute('aria-expanded', String(open));
+        button.setAttribute('aria-label', (open ? 'Masquer les réponses de ' : 'Voir les réponses de ') + result.name);
+      }
+      button.addEventListener('click', () => toggleAnswers(detailRow.hidden));
+      action.append(button);
+      detailCell.append(content);
+      rows.append(row, detailRow);
+      toggleAnswers(expanded.has(result.id));
+      if (expanded.has(result.id)) content.scrollTop = expanded.get(result.id);
     });
     status.textContent = scores.length ? scores.length + (scores.length === 1 ? ' participant' : ' participants') : 'Les notes apparaîtront après validation des quiz.';
   }, () => {
