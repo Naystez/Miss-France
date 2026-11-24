@@ -706,6 +706,12 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
     #quiz-ranking .quiz-answers-button {font-size:.72rem;padding:7px 5px}
   }
 
+
+  .quiz-panel .quiz-sharing-label {display:flex;align-items:center;gap:10px;font-weight:750;line-height:1.4}
+  #quiz-share-answers {flex:none;width:21px;height:21px;accent-color:#e7c18b}
+  #quiz-sharing-status {font-size:.85rem;color:#ead2a9;margin:8px 0 0}
+  #quiz-sharing-status:empty {display:none}
+  .quiz-answers-button:disabled {opacity:.6;cursor:not-allowed}
 </style>
 </head>
 <body>
@@ -1397,6 +1403,11 @@ nav a[aria-current="page"] {background:#34234e;color:#ffe1a9;box-shadow:inset 0 
       <button type="button" id="quiz-tab-miss" class="filter-favorites" aria-controls="quiz-view-miss" aria-pressed="false">Classement<span>des Miss</span></button>
     </nav>
     <div id="quiz-view-self">
+      <div id="quiz-sharing-panel" class="quiz-panel" hidden>
+        <label class="quiz-sharing-label"><input type="checkbox" id="quiz-share-answers" checked> Partager mes réponses avec les membres de mes groupes</label>
+        <p class="quiz-comparison-note">Activé par défaut. Tu peux changer ce choix à tout moment. Si tu désactives le partage, ta note reste visible au classement ; tes réponses restent privées.</p>
+        <p id="quiz-sharing-status" role="status"></p>
+      </div>
     <div id="quiz-connect" class="quiz-panel">
       <h3>Teste ta culture générale</h3>
       <p>Connecte-toi avec ton compte vérifié pour enregistrer ta tentative et retrouver le classement de tes groupes.</p>
@@ -2941,6 +2952,7 @@ const quizQuestions = quizData.questions;
 const quizVersion = 'officiel-2027-v1';
 const quizAttemptRef = uid => doc(db, 'quizAttempts2027', uid);
 const quizGroupRef = (group, uid) => doc(db, 'groups', group, 'quiz2027', uid);
+const quizScoreRef = (group, uid) => doc(db, 'groups', group, 'quizScores2027', uid);
 let quizAnswers = {};
 let quizIndex = 0;
 let quizRecord = null;
@@ -2952,6 +2964,8 @@ let stopQuizAttempt = null;
 let stopQuizRanking = null;
 let quizRankingRevision = 0;
 let quizSharePromise = null;
+let quizShareAnswers = true;
+let quizSharingSaving = false;
 
 function normalizeQuizAnswer(value) {
   return String(value || '').normalize('NFD').replace(/\p{Diacritic}/gu, '')
@@ -2991,7 +3005,7 @@ function quizKey() {
 function saveQuizDraft() {
   if (!user || quizRecord) return;
   try {
-    localStorage.setItem(quizKey(), JSON.stringify({version:quizVersion, answers:quizAnswers, index:quizIndex, started:quizStarted}));
+    localStorage.setItem(quizKey(), JSON.stringify({version:quizVersion, answers:quizAnswers, index:quizIndex, started:quizStarted, shareAnswers:quizShareAnswers}));
     byId('quiz-save').textContent = 'Brouillon enregistré sur cet appareil';
   } catch {
     byId('quiz-save').textContent = 'Sauvegarde locale indisponible. Garde cette page ouverte.';
@@ -3012,6 +3026,9 @@ function resetQuizSession() {
   quizSending = false;
   quizGroups = [];
   quizSharePromise = null;
+  quizShareAnswers = true;
+  quizSharingSaving = false;
+  byId('quiz-sharing-status').textContent = '';
   byId('quiz-group').replaceChildren();
   byId('quiz-ranking-rows').replaceChildren();
   byId('quiz-feedback').textContent = '';
@@ -3043,6 +3060,7 @@ function startQuizSession() {
       }
       quizIndex = Math.max(0, Math.min(quizQuestions.length - 1, Number(saved.index) || 0));
       quizStarted = Boolean(saved.started);
+      quizShareAnswers = saved.shareAnswers !== false;
     }
   } catch {
     quizAnswers = {};
@@ -3053,6 +3071,7 @@ function startQuizSession() {
     quizReady = true;
     if (snapshot.exists()) {
       quizRecord = snapshot.data();
+      quizShareAnswers = quizRecord.shareAnswers !== false;
       quizAnswers = {...quizRecord.answers};
       try { localStorage.removeItem(quizKey()); } catch {}
       renderQuizResult();
@@ -3069,6 +3088,9 @@ function startQuizSession() {
 
 function renderQuizState() {
   const connected = Boolean(user?.emailVerified && nicknameOf(user));
+  byId('quiz-sharing-panel').hidden = !connected;
+  byId('quiz-share-answers').checked = quizShareAnswers;
+  byId('quiz-share-answers').disabled = !quizReady || quizSharingSaving || quizSending;
   byId('quiz-connect').hidden = connected;
   byId('quiz-loading').hidden = !connected || quizReady;
   byId('quiz-intro').hidden = !connected || !quizReady || quizStarted || Boolean(quizRecord);
@@ -3269,9 +3291,11 @@ byId('quiz-submit').addEventListener('click', async () => {
   const revision = sessionRevision;
   const payload = {
     answers:Object.fromEntries(quizQuestions.map(question => [question.id, quizAnswers[question.id] || ''])),
-    name:nicknameOf(user), submittedAt:serverTimestamp()
+    name:nicknameOf(user), submittedAt:serverTimestamp(), shareAnswers:quizShareAnswers,
+    summary:quizScoreSummary(evaluateQuiz(quizAnswers))
   };
   byId('quiz-submit').disabled = true;
+  byId('quiz-share-answers').disabled = true;
   byId('quiz-feedback').textContent = 'Enregistrement de ta tentative…';
   try {
     const record = await runTransaction(db, async transaction => {
@@ -3298,24 +3322,52 @@ byId('quiz-submit').addEventListener('click', async () => {
     if (revision === sessionRevision) {
       quizSending = false;
       byId('quiz-submit').disabled = false;
+      renderQuizState();
     }
   }
 });
 
+function quizScoreSummary(score) {
+  return {basePoints:Math.round(score.basePoints * 1e10) / 1e10, bonus:Math.round(score.bonus)};
+}
+function scoreFromQuizSummary(data) {
+  const bonusPoints = data.bonus * 0.4;
+  const points = Math.round((data.basePoints + bonusPoints) * 1e10) / 1e10;
+  return {basePoints:data.basePoints, bonus:data.bonus, bonusPoints, points, note:points / 4};
+}
 async function shareQuizResults() {
   if (!quizRecord || !user || !quizGroups.length) return;
-  if (quizSharePromise) return quizSharePromise;
+  if (quizSharePromise) return quizSharePromise.catch(() => {});
   const revision = sessionRevision;
   const uid = user.uid;
   const groups = [...quizGroups];
   quizSharePromise = (async () => {
+    // Upgrade legacy attempts once without changing their recorded answers.
+    await runTransaction(db, async transaction => {
+      const ref = quizAttemptRef(uid);
+      const canonical = await transaction.get(ref);
+      if (canonical.exists() && !canonical.data().summary) {
+        transaction.update(ref, {summary:quizScoreSummary(evaluateQuiz(canonical.data().answers))});
+      }
+    });
     const outcomes = await Promise.allSettled(groups.map(async group => {
       if (revision !== sessionRevision) return;
       await runTransaction(db, async transaction => {
         const canonical = await transaction.get(quizAttemptRef(uid));
         const target = quizGroupRef(group.id, uid);
+        const scoreTarget = quizScoreRef(group.id, uid);
         const existing = await transaction.get(target);
-        if (!existing.exists() && canonical.exists()) transaction.set(target, canonical.data());
+        const existingScore = await transaction.get(scoreTarget);
+        if (!canonical.exists()) return;
+        const attempt = canonical.data();
+        if (!existing.exists()) transaction.set(target, {
+          name:attempt.name, answers:attempt.answers, submittedAt:attempt.submittedAt
+        });
+        const publicScore = {name:attempt.name, ...attempt.summary, shareAnswers:attempt.shareAnswers !== false};
+        const previous = existingScore.data();
+        if (!existingScore.exists() || Object.keys(publicScore).some(key => previous[key] !== publicScore[key])) {
+          transaction.set(scoreTarget, publicScore);
+        }
       });
     }));
     if (revision !== sessionRevision) return;
@@ -3324,16 +3376,55 @@ async function shareQuizResults() {
     if (failed) byId('quiz-feedback').textContent = 'Ta tentative est enregistrée. Certains classements attendent une synchronisation.';
     updateQuizRanking();
   })();
-  try { await quizSharePromise; } finally {
+  try { await quizSharePromise; } catch (error) {
+    if (revision === sessionRevision) {
+      byId('quiz-share-retry').hidden = false;
+      byId('quiz-feedback').textContent = 'Ta tentative est enregistrée. Publie les nouvelles règles Firebase puis réessaie la synchronisation.';
+    }
+  } finally {
     if (revision === sessionRevision) {
       quizSharePromise = null;
-      if (groups.map(group => group.id).join(',') !== quizGroups.map(group => group.id).join(',')) {
-        await shareQuizResults();
-      }
+      if (groups.map(group => group.id).join(',') !== quizGroups.map(group => group.id).join(',')) await shareQuizResults();
     }
   }
 }
 byId('quiz-share-retry').addEventListener('click', () => shareQuizResults());
+byId('quiz-share-answers').addEventListener('change', async event => {
+  if (quizSharingSaving || quizSending || !quizReady) return;
+  const previous = quizShareAnswers;
+  const selected = event.target.checked;
+  const revision = sessionRevision;
+  const uid = user.uid;
+  quizShareAnswers = selected;
+  if (!quizRecord) {
+    saveQuizDraft();
+    byId('quiz-sharing-status').textContent = selected ? 'Tes réponses seront partagées après validation.' : 'Tes réponses resteront privées après validation.';
+    return;
+  }
+  quizSharingSaving = true;
+  byId('quiz-share-answers').disabled = true;
+  byId('quiz-sharing-status').textContent = 'Enregistrement de ton choix…';
+  try {
+    if (quizSharePromise) await quizSharePromise;
+    if (revision !== sessionRevision) return;
+    await updateDoc(quizAttemptRef(uid), {shareAnswers:selected});
+    if (revision !== sessionRevision) return;
+    quizRecord = {...quizRecord, shareAnswers:selected};
+    quizShareAnswers = selected;
+    byId('quiz-sharing-status').textContent = selected ? 'Tes réponses sont partagées avec tes groupes.' : 'Tes réponses sont privées. Ta note reste au classement.';
+    await shareQuizResults();
+  } catch (error) {
+    if (revision === sessionRevision) {
+      quizShareAnswers = previous;
+      byId('quiz-sharing-status').textContent = 'Choix non enregistré. Vérifie la connexion et la publication des nouvelles règles Firebase, puis réessaie.';
+    }
+  } finally {
+    if (revision === sessionRevision) {
+      quizSharingSaving = false;
+      renderQuizState();
+    }
+  }
+});
 
 function updateQuizGroups(options) {
   const previous = byId('quiz-group').value;
@@ -3404,28 +3495,39 @@ function updateQuizRanking() {
     status.textContent = 'Rejoins un groupe dans Pronostics → Gestion pour comparer ta note.';
     return;
   }
+  const stops = [];
+  let stopped = false;
+  const current = () => !stopped && revision === quizRankingRevision;
+  stopQuizRanking = () => { stopped = true; stops.forEach(stop => stop()); };
+  const publicScores = new Map();
+  const legacy = new Map();
+  let memberIds = [];
+  let receivedScores = false;
   status.textContent = 'Chargement du classement…';
-  stopQuizRanking = onSnapshot(collection(db, 'groups', group, 'quiz2027'), {includeMetadataChanges:true}, snapshot => {
-    if (revision !== quizRankingRevision || snapshot.metadata.fromCache || snapshot.metadata.hasPendingWrites) return;
+  function renderRows() {
+    if (!current()) return;
     const expanded = new Map([...rows.querySelectorAll('tr[data-quiz-detail]')]
       .filter(row => !row.hidden).map(row => [row.dataset.quizDetail, row.querySelector('.quiz-participant-scroll')?.scrollTop || 0]));
-    const scores = snapshot.docs.map(item => ({id:item.id, ...item.data(), score:evaluateQuiz(item.data().answers)}))
-      .sort((a, b) => b.score.points - a.score.points || a.name.localeCompare(b.name, 'fr'));
+    const entries = [...publicScores.values(), ...[...legacy.entries()]
+      .filter(([uid, value]) => value && !publicScores.has(uid)).map(([,value]) => value)];
+    const scores = entries.sort((a, b) => b.score.points - a.score.points || a.name.localeCompare(b.name, 'fr'));
     rows.replaceChildren();
     let rank = 0;
     scores.forEach((result, index) => {
       if (!index || result.score.points !== scores[index - 1].score.points) rank = index + 1;
       const row = document.createElement('tr');
       for (const text of [rank, result.name + (result.id === user.uid ? ' (toi)' : ''), formatQuiz(result.score.note) + ' / 20']) {
-        const cell = row.insertCell();
-        cell.textContent = text;
+        row.insertCell().textContent = text;
       }
       const action = row.insertCell();
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'filter-favorites quiz-answers-button';
-      button.textContent = 'Voir les réponses';
-      button.setAttribute('aria-label', 'Voir les réponses de ' + result.name);
+      const canRead = result.id === user.uid || result.shareAnswers !== false;
+      button.disabled = !canRead;
+      button.textContent = canRead ? 'Voir les réponses' : 'Non partagées';
+      button.setAttribute('aria-label', canRead ? 'Voir les réponses de ' + result.name : result.name + ' ne partage pas ses réponses');
+      button.setAttribute('aria-expanded', 'false');
       const detailRow = document.createElement('tr');
       detailRow.dataset.quizDetail = result.id;
       detailRow.className = 'quiz-participant-detail-row';
@@ -3439,24 +3541,68 @@ function updateQuizRanking() {
       content.setAttribute('role', 'region');
       content.setAttribute('aria-label', 'Détail des réponses de ' + result.name);
       button.setAttribute('aria-controls', content.id);
-      function toggleAnswers(open) {
-        if (open && !content.childElementCount) content.append(renderParticipantQuizAnswers(result));
+      async function toggleAnswers(open) {
+        if (!canRead || !current()) return;
         detailRow.hidden = !open;
         button.textContent = open ? 'Masquer' : 'Voir les réponses';
         button.setAttribute('aria-expanded', String(open));
-        button.setAttribute('aria-label', (open ? 'Masquer les réponses de ' : 'Voir les réponses de ') + result.name);
+        if (!open) { content.replaceChildren(); return; }
+        content.textContent = 'Chargement des réponses…';
+        try {
+          // Always check the current server-side sharing preference on opening.
+          const answerDoc = await getDocFromServer(quizGroupRef(group, result.id));
+          if (!current() || detailRow.hidden || byId(content.id) !== content) return;
+          if (!answerDoc.exists()) throw new Error('Réponses indisponibles.');
+          const attempt = answerDoc.data();
+          content.replaceChildren(renderParticipantQuizAnswers({id:result.id, name:attempt.name, score:evaluateQuiz(attempt.answers)}));
+          if (expanded.has(result.id)) content.scrollTop = expanded.get(result.id);
+        } catch (error) {
+          if (!current() || detailRow.hidden || byId(content.id) !== content) return;
+          content.textContent = error.code === 'permission-denied'
+            ? 'Ce participant ne partage pas ses réponses, ou tu n’as plus accès à ce groupe.'
+            : 'Impossible de charger les réponses. Ferme ce détail et réessaie.';
+        }
       }
       button.addEventListener('click', () => toggleAnswers(detailRow.hidden));
       action.append(button);
       detailCell.append(content);
       rows.append(row, detailRow);
-      toggleAnswers(expanded.has(result.id));
-      if (expanded.has(result.id)) content.scrollTop = expanded.get(result.id);
+      if (canRead && expanded.has(result.id)) toggleAnswers(true);
     });
-    status.textContent = scores.length ? scores.length + (scores.length === 1 ? ' participant' : ' participants') : 'Les notes apparaîtront après validation des quiz.';
-  }, () => {
-    if (revision === quizRankingRevision) status.textContent = 'Impossible de charger le classement. Vérifie les règles Firebase et réessaie.';
-  });
+    if (receivedScores) status.textContent = scores.length ? scores.length + (scores.length === 1 ? ' participant' : ' participants') : 'Les notes apparaîtront après validation des quiz.';
+  }
+  async function loadLegacyScores() {
+    if (!current() || !receivedScores) return;
+    const missing = memberIds.filter(uid => !publicScores.has(uid) && !legacy.has(uid));
+    for (const uid of missing) legacy.set(uid, null);
+    await Promise.allSettled(missing.map(async uid => {
+      try {
+        const snapshot = await getDocFromServer(quizGroupRef(group, uid));
+        if (current() && snapshot.exists() && !publicScores.has(uid)) {
+          const attempt = snapshot.data();
+          legacy.set(uid, {id:uid, name:attempt.name, shareAnswers:true, score:evaluateQuiz(attempt.answers)});
+        }
+      } catch { /* Private or absent legacy attempts stay inaccessible. */ }
+    }));
+    if (current() && missing.length) renderRows();
+  }
+  stops.push(onSnapshot(collection(db, 'groups', group, 'quizScores2027'), {includeMetadataChanges:true}, snapshot => {
+    if (!current() || snapshot.metadata.fromCache || snapshot.metadata.hasPendingWrites) return;
+    publicScores.clear();
+    for (const item of snapshot.docs) {
+      const data = item.data();
+      publicScores.set(item.id, {id:item.id, name:data.name, shareAnswers:data.shareAnswers !== false, score:scoreFromQuizSummary(data)});
+      legacy.delete(item.id);
+    }
+    receivedScores = true;
+    renderRows();
+    loadLegacyScores();
+  }, () => { if (current()) status.textContent = 'Impossible de charger le classement. Publie les nouvelles règles Firebase puis réessaie.'; }));
+  stops.push(onSnapshot(rosterRef(group), snapshot => {
+    if (!current()) return;
+    memberIds = [...new Set([user.uid, ...snapshot.docs.map(item => item.id)])];
+    loadLegacyScores();
+  }, () => { if (current()) { memberIds = [user.uid]; loadLegacyScores(); } }));
 }
 byId('quiz-group').addEventListener('change', updateQuizRanking);
 document.addEventListener('miss-france:quiz-view', updateQuizRanking);
